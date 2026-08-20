@@ -26,7 +26,7 @@ code public-claude-clustering-agent/
 # 3. Avvia Claude Code ed effettua il login con il tuo account Pro
 ```
 
-Alla prima richiesta che tocca la cartella Drive "Clustering rules", Claude Code ti chiederà l'ID di quella cartella (o della tua copia, se stai partendo da zero) e lo salverà in `.claude/local-config.json` (gitignored — vedi `.claude/local-config.example.json`) per le sessioni successive. Non serve farlo a mano, ma puoi anche precompilarlo tu prima di iniziare.
+Alla prima richiesta che tocca la cartella Drive "Clustering rules", Claude Code ti chiederà l'ID di quella cartella (o della tua copia, se stai partendo da zero) e lo salverà in **`clustering-config.json`** (gitignored — vedi `clustering-config.example.json` per il formato) per le sessioni successive. Non serve farlo a mano, ma puoi anche precompilarlo tu prima di iniziare. È lo stesso identico file usato anche dalle skill claude.ai (`claude-skill`, `brand-cluster-rules-builder-skill`): un solo file da tenere aggiornato, riusabile in entrambi i contesti — puoi anche allegarlo/incollarlo in una chat claude.ai invece di reinserire l'ID a mano.
 
 ## Utilizzo
 
@@ -132,12 +132,12 @@ Altri Cluster comuni (es. Squadre di Calcio, Maglieria e Cashmere, Tessuti e Mat
 
 Le regole che determinano Cluster, Sotto Cluster e le colonne opzionali **non sono nel codice**: vivono in Google Sheet condivisi su Drive, nella cartella **"Clustering rules"**. Chiunque abbia accesso a quella cartella può aggiungere un termine, un Sotto Cluster o un nuovo valore di attributo senza scrivere una riga di Python — la modifica diventa effettiva alla sincronizzazione successiva (`--mode sync-rules`, eseguita dall'agente Claude Code a inizio sessione di clustering, vedi [CLAUDE.md](CLAUDE.md)).
 
-L'ID di questa cartella **non è in questo repo pubblico** (equivarrebbe a un permesso di lettura, dato che la condivisione è "chiunque abbia il link"): ognuno lo configura nel proprio `.claude/local-config.json` locale (gitignored) — vedi [CLAUDE.md](CLAUDE.md), sezione "Configurazione: ID della cartella Drive", e `.claude/local-config.example.json` per il formato.
+L'ID di questa cartella **non è in questo repo pubblico** (equivarrebbe a un permesso di lettura, dato che la condivisione è "chiunque abbia il link"): ognuno lo configura nel proprio `clustering-config.json` locale (gitignored, alla radice del repo) — vedi [CLAUDE.md](CLAUDE.md), sezione "Configurazione: ID della cartella Drive", e `clustering-config.example.json` per il formato.
 
 ### Struttura della cartella Drive
 
 ```text
-Clustering rules/                              (id <CLUSTERING_RULES_FOLDER_ID>, vedi .claude/local-config.json)
+Clustering rules/                              (id <CLUSTERING_RULES_FOLDER_ID>, vedi clustering-config.json)
 ├── <Vertical>/              es. Fashion, Shoes, Intimo, Multibrand — una sottocartella per settore
 │   └── cluster_<vertical>_<lingua>   uno Google Sheet per lingua (es. cluster_fashion_it)
 │       └── <una o più tab>           vedi "Aggiungere un Sotto Cluster o un termine"

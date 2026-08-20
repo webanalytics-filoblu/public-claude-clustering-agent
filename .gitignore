@@ -10,8 +10,8 @@
 !.env.example
 .venv/
 
-# Local config (Drive folder ID etc.) — never commit real IDs, see .claude/local-config.example.json
-.claude/local-config.json
+# Local config (Drive folder ID etc.) — never commit the real value, see clustering-config.example.json
+/clustering-config.json
 
 # Python bytecode
 __pycache__/

@@ -18,10 +18,7 @@ Il repo è **pubblico**: lo script e le istruzioni di flusso si scaricano in let
 ```bash
 export REPO="webanalytics-filoblu/public-claude-clustering-agent"
 export BRANCH="main"
-export CLUSTERING_RULES_FOLDER_ID="<CLUSTERING_RULES_FOLDER_ID>"
 ```
-
-**`CLUSTERING_RULES_FOLDER_ID`**: l'ID della cartella Drive "Clustering rules" della tua organizzazione. Il valore sopra è un placeholder — **sostituiscilo con il tuo ID prima di caricare questa skill su claude.ai**, e non incollare mai l'ID reale nella copia di questo file che vive nel repo pubblico (quell'ID equivale a un permesso di lettura sulla cartella, condivisa "chiunque abbia il link"): tienilo solo nella copia caricata come skill. Se lo trovi ancora al valore placeholder a runtime, fermati e chiedi all'utente l'ID prima di proseguire — non indovinarlo né usarne uno di un'altra organizzazione.
 
 Scarica script e istruzioni di flusso complete via raw GitHub (un file alla volta, senza `git clone` — questo host non è soggetto ad alcun blocco). Il ruleset (regole cluster/attributi/brand) **non** vive in questo repo: vive in Google Sheet condivisi su Drive (cartella "chiunque abbia il link"). Il connettore Google Drive già collegato a questa chat serve sia per trovare gli ID dei file (`search_files`) sia per scaricarne il contenuto (`download_file_content`/`read_file_content`) — **non** un `curl` anonimo diretto: in questo ambiente il sandbox nega in modo permanente la connessione verso l'host di redirect di Drive (`*.googleusercontent.com`), a differenza dell'host `raw.githubusercontent.com` usato qui sotto — vedi `WORKFLOW.md` Step 0 per il dettaglio.
 
@@ -38,6 +35,16 @@ curl -sL \
 ```
 
 Verifica che ogni file scaricato non contenga una pagina di errore (404, path errato) prima di proseguire — `work/scripts/cluster.py` deve iniziare con `#!/usr/bin/env python3`, `work/WORKFLOW.md` deve iniziare con `#`. Se qualcosa non torna, mostra l'errore all'utente invece di continuare.
+
+**Configurazione: ID della cartella Drive "Clustering rules"**. Questo ID **non vive nel repo pubblico** (equivarrebbe a un permesso di lettura sulla cartella, condivisa "chiunque abbia il link") ed è lo stesso identico dato usato dal repo lato VS Code (file `clustering-config.json` alla radice del repo, vedi `CLAUDE.md`) — un solo file/valore da mantenere aggiornato, riusabile in entrambi i contesti:
+
+- Se l'utente allega o incolla in questa chat il contenuto del suo `clustering-config.json` (lo stesso file che usa già in locale — formato in `clustering-config.example.json` nel repo), scrivilo così com'è in `work/clustering-config.json`.
+- Altrimenti chiedi: *"Qual è l'ID della cartella Drive 'Clustering rules' della tua organizzazione?"* e scrivi tu `work/clustering-config.json` con lo stesso formato (`{"clustering_rules_folder_id": "..."}`).
+- Poi:
+  ```bash
+  export CLUSTERING_RULES_FOLDER_ID=$(python3 -c "import json;print(json.load(open('work/clustering-config.json'))['clustering_rules_folder_id'])")
+  ```
+- Non procedere se il valore letto è vuoto o è ancora il placeholder `<CLUSTERING_RULES_FOLDER_ID>`: chiedi di nuovo all'utente.
 
 **Verifica anche che il connettore Google Drive sia disponibile in questa sessione**: qui serve sia per trovare gli ID dei file in "Clustering rules" via `search_files` sia per scaricarne il contenuto via `download_file_content`/`read_file_content` — non c'è un percorso `curl` alternativo in questo ambiente. Se i tool Drive non sono richiamabili, fermati e chiedi all'utente di autorizzarlo nelle impostazioni connettori di claude.ai prima di procedere.
 
