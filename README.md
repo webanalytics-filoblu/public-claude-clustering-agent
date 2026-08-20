@@ -21,7 +21,7 @@ Le regole usate nella fase 1 (Cluster, Sotto Cluster, brand correlati, attributi
 pip install pandas
 
 # 2. Apri la cartella in VS Code
-code claude-clustering-agent/
+code public-claude-clustering-agent/
 
 # 3. Avvia Claude Code ed effettua il login con il tuo account Pro
 ```
@@ -237,7 +237,7 @@ Nel normale utilizzo non serve farlo a mano: l'agente Claude Code lo fa da solo 
 ## Struttura cartelle
 
 ```text
-claude-clustering-agent/
+public-claude-clustering-agent/
 ├── CLAUDE.md                        ← istruzioni persistenti per l'agente
 ├── README.md
 ├── .claude/

@@ -178,7 +178,7 @@ Il CSV di input può contenere una colonna **Country** con i codici mercato: `IT
 ## Struttura cartelle
 
 ```
-claude-clustering-agent/
+public-claude-clustering-agent/
 ├── CLAUDE.md                        ← questo file (istruzioni persistenti)
 ├── README.md
 ├── .claude/
