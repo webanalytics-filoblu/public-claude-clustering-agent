@@ -18,7 +18,10 @@ Il repo è **pubblico**: lo script e le istruzioni di flusso si scaricano in let
 ```bash
 export REPO="webanalytics-filoblu/public-claude-clustering-agent"
 export BRANCH="main"
+export CLUSTERING_RULES_FOLDER_ID="<CLUSTERING_RULES_FOLDER_ID>"
 ```
+
+**`CLUSTERING_RULES_FOLDER_ID`**: l'ID della cartella Drive "Clustering rules" della tua organizzazione. Il valore sopra è un placeholder — **sostituiscilo con il tuo ID prima di caricare questa skill su claude.ai**, e non incollare mai l'ID reale nella copia di questo file che vive nel repo pubblico (quell'ID equivale a un permesso di lettura sulla cartella, condivisa "chiunque abbia il link"): tienilo solo nella copia caricata come skill. Se lo trovi ancora al valore placeholder a runtime, fermati e chiedi all'utente l'ID prima di proseguire — non indovinarlo né usarne uno di un'altra organizzazione.
 
 Scarica script e istruzioni di flusso complete via raw GitHub (un file alla volta, senza `git clone` — questo host non è soggetto ad alcun blocco). Il ruleset (regole cluster/attributi/brand) **non** vive in questo repo: vive in Google Sheet condivisi su Drive (cartella "chiunque abbia il link"). Il connettore Google Drive già collegato a questa chat serve sia per trovare gli ID dei file (`search_files`) sia per scaricarne il contenuto (`download_file_content`/`read_file_content`) — **non** un `curl` anonimo diretto: in questo ambiente il sandbox nega in modo permanente la connessione verso l'host di redirect di Drive (`*.googleusercontent.com`), a differenza dell'host `raw.githubusercontent.com` usato qui sotto — vedi `WORKFLOW.md` Step 0 per il dettaglio.
 

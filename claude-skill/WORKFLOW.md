@@ -12,7 +12,7 @@ Il ruleset (cluster, attributi, brand correlati) vive in Google Sheet condivisi 
 
 ## Step 0 — Scegli il vertical e sincronizza il ruleset da Google Drive
 
-Elenca le sottocartelle reali sotto la cartella Drive "Clustering rules" (id `1sBd0k1QSc23E_5ii6Nc1DtZ0oD1GjusS`) con `search_files` (`parentId = '1sBd0k1QSc23E_5ii6Nc1DtZ0oD1GjusS' and mimeType = 'application/vnd.google-apps.folder'`), escludendo quelle con prefisso `_` (es. `_Attributi`, non un vertical). Chiedi sempre all'utente quale vertical usare **tra quelli effettivamente trovati**, proponendo il più plausibile in base a brand/settore — non esiste una lista fissa da indovinare.
+Elenca le sottocartelle reali sotto la cartella Drive "Clustering rules" (id `$CLUSTERING_RULES_FOLDER_ID`, già esportata dallo Step 0 di `SKILL.md` — se manca o è ancora il placeholder, fermati e chiedi all'utente l'ID della sua cartella prima di continuare) con `search_files` (`parentId = '$CLUSTERING_RULES_FOLDER_ID' and mimeType = 'application/vnd.google-apps.folder'`), escludendo quelle con prefisso `_` (es. `_Attributi`, non un vertical). Chiedi sempre all'utente quale vertical usare **tra quelli effettivamente trovati**, proponendo il più plausibile in base a brand/settore — non esiste una lista fissa da indovinare.
 
 Una volta scelto il vertical, sincronizza il ruleset. **Il contenuto degli Sheet non passa quasi mai per il tuo contesto** — ma qui, a differenza del repo VS Code, il `curl` anonimo diretto su disco **non è disponibile**: il sandbox di questo ambiente nega la connessione verso l'host di redirect di Drive (`*.googleusercontent.com`) in modo permanente. Non è un problema di permessi, non si risolve e non va ritentato con varianti di flag/redirect.
 

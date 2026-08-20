@@ -40,7 +40,7 @@ Le colonne opzionali sono classificate **sempre da regole** (zero AI), quindi no
 
 ### Step 0ter — Scegli il vertical (prima di sincronizzare/prepare)
 
-Il vertical **non è una lista fissa nel codice**: elenca le sottocartelle reali sotto "Clustering rules" (`search_files` con `parentId = '1sBd0k1QSc23E_5ii6Nc1DtZ0oD1GjusS' and mimeType = 'application/vnd.google-apps.folder'`, escludendo quelle con prefisso `_` come `_Attributi`) e proponi all'utente il nome più plausibile **tra quelli effettivamente presenti** (in base a brand/settore), con una domanda tipo: *"Per [brand], quale vertical uso: [elenco cartelle trovate]?"*
+Il vertical **non è una lista fissa nel codice**: elenca le sottocartelle reali sotto "Clustering rules" (`search_files` con `parentId = '<CLUSTERING_RULES_FOLDER_ID>' and mimeType = 'application/vnd.google-apps.folder'` — l'ID va letto da `.claude/local-config.json`, vedi [CLAUDE.md](../../CLAUDE.md) sezione "Configurazione: ID della cartella Drive", escludendo quelle con prefisso `_` come `_Attributi`) e proponi all'utente il nome più plausibile **tra quelli effettivamente presenti** (in base a brand/settore), con una domanda tipo: *"Per [brand], quale vertical uso: [elenco cartelle trovate]?"*
 
 Il vertical scelto viene salvato in `output/workdir/vertical.json` e riletto automaticamente dagli step successivi (analyze, add-rules) per tutta la sessione — richiedilo di nuovo solo se non sei sicuro sia lo stesso brand/sessione di prima.
 
