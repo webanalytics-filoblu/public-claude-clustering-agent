@@ -80,13 +80,25 @@ Prima di ogni `--mode prepare` (una sola volta per vertical/sessione), materiali
    output/workdir/sheets_raw/cities.csv
    ```
    Sincronizza una lingua alla volta, solo quelle presenti nel CSV di input (colonna Country, default IT) per il vertical/attributi; brand e città sono unici e vanno scaricati una sola volta per sessione. Il CSV non ha l'overhead del contenitore xlsx (drawing/theme/styles/persons/content-types) né la sua inflazione: solo il testo delle celle, gonfiato del ~33% dalla codifica base64 — quindi un base64 molto più corto da trascrivere, con meno rischio di troncamento su file grandi rispetto al vecchio flusso xlsx. Se `download_file_content` restituisce un errore di permesso, fermati e segnalalo all'utente invece di procedere con regole parziali.
+
+   **Se il risultato del tool supera il limite di token di un singolo tool result** (può bastare già uno Sheet di poche centinaia di righe): l'ambiente lo salva su un file locale invece di restituirlo per intero in chat, e propone di leggerlo "in chunk sequenziali" — istruzione pensata per riassumere testo, non per scrivere un CSV byte-per-byte. **Non farlo**: decodifica il base64 direttamente da quel file salvato su disco con un comando locale, senza mai farlo transitare per il tuo contesto:
+   ```bash
+   python3 -c "
+   import json, base64
+   with open('<path del tool-result salvato>') as f:
+       data = json.load(f)
+   with open('output/workdir/sheets_raw/<vertical>/<lingua>.csv', 'wb') as out:
+       out.write(base64.b64decode(data['content']))
+   "
+   ```
+   Questo rende il fallback "trascrivi a mano da `read_file_content`" del punto 3 sotto necessario solo quando l'ambiente non espone alcun file locale da cui decodificare (nessun percorso salvato indicato dal tool).
 3. Esegui la materializzazione:
    ```bash
    python scripts/cluster.py --mode sync-rules --workdir output/workdir
    ```
    Lo script legge ogni `.csv`, lo tratta come singolo tab nel formato compresso (colonna Cluster/Attributo esplicita, vedi sotto) e scrive `output/workdir/rules/...` nel formato interno; segnala (senza bloccare) eventuali valori di Cluster/Attributo non riconosciuti (probabile typo). Se una lingua non è stata sincronizzata, `--mode prepare`/`analyze` la trattano semplicemente come non disponibile per quella lingua.
 
-   `read_file_content` (invece di `download_file_content`) resta un fallback accettabile solo per `brands`/`cities` (liste piatte, poche colonne, basso rischio di trascrizione) o se il base64 di un CSV grande si tronca comunque in scrittura: in quel caso il contenuto va trascritto a mano nel JSON interno (`output/workdir/rules/...json`) invece che tramite `--mode sync-rules`, con l'affidabilità aggiuntiva da verificare a campione (numero di righe, liste `Terms`/`Richiede Anche` separate da `|`).
+   `read_file_content` (invece di `download_file_content`) resta un fallback accettabile solo per `brands`/`cities` (liste piatte, poche colonne, basso rischio di trascrizione) o se il base64 di un CSV grande si tronca comunque in scrittura **e** non è disponibile un file locale da cui decodificarlo direttamente (vedi nota sopra): in quel caso il contenuto va trascritto a mano nel JSON interno (`output/workdir/rules/...json`) invece che tramite `--mode sync-rules`, con l'affidabilità aggiuntiva da verificare a campione (numero di righe, liste `Terms`/`Richiede Anche` separate da `|`).
 
 Ripeti gli step 1-2 solo per un nuovo vertical/lingua o quando lo Sheet è cambiato dall'ultima sync in questa sessione; se hai già l'ID di uno Sheet da una ricerca precedente nella stessa sessione, riusalo senza richiamare `search_files`.
 
