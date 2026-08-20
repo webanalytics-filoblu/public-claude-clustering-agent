@@ -24,6 +24,11 @@ pip install pandas
 code public-claude-clustering-agent/
 
 # 3. Avvia Claude Code ed effettua il login con il tuo account Pro
+
+# 4. Configura un server MCP Google Drive in Claude Code (stessi tool
+#    search_files/download_file_content usati su claude.ai) — la cartella
+#    "Clustering rules" richiede un account autorizzato, non c'è un
+#    percorso via curl anonimo
 ```
 
 L'ID della cartella Drive "Clustering rules" vive in **`clustering-config.json`**, alla radice del repo — se stai partendo da una tua copia/fork, sostituiscilo con l'ID della tua cartella prima di iniziare (o lascialo vuoto: Claude Code te lo chiederà alla prima richiesta che lo tocca e lo salverà lì). È lo stesso identico file usato anche dalle skill claude.ai (`claude-skill`, `brand-cluster-rules-builder-skill`): un solo file da tenere aggiornato, riusabile in entrambi i contesti.
@@ -230,7 +235,7 @@ Entrambi sono condivisi da tutti i vertical e lingue: non vanno duplicati.
 
 ### Dopo la modifica
 
-Le modifiche allo Sheet non sono immediate: vanno prima riscaricate come `.csv` (`Clustering rules` è condivisa "chiunque abbia il link", quindi via `curl` anonimo diretto su disco — o via il connettore Drive `download_file_content(exportMimeType="text/csv")` nell'ambiente claude.ai, dove il `curl` è bloccato) e poi materializzate in locale con
+Le modifiche allo Sheet non sono immediate: vanno prima riscaricate come `.csv` con il tool connettore Drive `download_file_content(exportMimeType="text/csv")` (stesso canale in VS Code e su claude.ai — la cartella richiede un account autorizzato, niente `curl` anonimo) e poi materializzate in locale con
 
 ```bash
 python scripts/cluster.py --mode sync-rules --workdir output/workdir
