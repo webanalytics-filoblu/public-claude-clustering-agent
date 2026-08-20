@@ -34,18 +34,38 @@ Una volta scelto il vertical, sincronizza il ruleset. **Il contenuto degli Sheet
    ```
    **Non è gratis**: il base64 passa per intero nel tuo contesto. Il CSV non ha l'overhead del contenitore xlsx (drawing/theme/styles/persons/content-types): solo il testo delle celle, gonfiato di un ulteriore ~33% dalla codifica base64 — molto più leggero da scaricare/scrivere del vecchio flusso `.xlsx`, e con meno rischio di troncamento su file grandi.
 
-   **Se il risultato supera il limite di token di un singolo tool result** (basta uno Sheet di poche centinaia di righe): l'ambiente lo salva su un file locale invece di restituirlo per intero in chat, e propone di leggerlo "in chunk sequenziali" — istruzione per riassumere testo, non per scrivere un CSV byte-per-byte. **Non farlo**: è lentissimo e rischia di bloccare la sessione per minuti anche su file piccoli. Decodifica invece il base64 direttamente da quel file salvato su disco con un comando locale (mai a mano nel contesto):
-   ```bash
-   python3 -c "
-   import json, base64
-   with open('<path del tool-result salvato>') as f:
-       data = json.load(f)
-   with open('work/output/workdir/sheets_raw/<vertical>/<lingua>.csv', 'wb') as out:
-       out.write(base64.b64decode(data['content']))
-   "
-   ```
+   **Se il risultato supera il limite di token/caratteri gestibile in un solo passaggio**
+   (basta uno Sheet di poche centinaia di righe): verifica come si comporta l'ambiente in
+   quel momento, non assumerlo dal nome dell'ambiente.
+   - **Caso A — redirezionato su un file locale** (osservato in Claude Code/VS Code, non
+     su claude.ai): l'ambiente propone di leggerlo "in chunk sequenziali per
+     riassumerlo" — istruzione per riassumere testo, non per scrivere un CSV
+     byte-per-byte. **Non farlo**: decodifica invece il base64 direttamente da quel file
+     salvato su disco con un comando locale (mai a mano nel contesto):
+     ```bash
+     python3 -c "
+     import json, base64
+     with open('<path del tool-result salvato>') as f:
+         data = json.load(f)
+     with open('work/output/workdir/sheets_raw/<vertical>/<lingua>.csv', 'wb') as out:
+         out.write(base64.b64decode(data['content']))
+     "
+     ```
+   - **Caso B — arriva intero in chat, senza redirect** (il caso normale in questo
+     ambiente claude.ai: qui non esiste un path locale analogo a quello sopra). Non puoi
+     far uscire il base64 dal tuo contesto: devi scriverlo tu, ma **non in un solo
+     comando** — un unico `create_file`/heredoc con l'intero base64 si tronca in silenzio
+     molto prima di quanto sembri necessario (osservato troncamento a poche migliaia di
+     caratteri su un file reale da ~130.000), e un file troncato è peggio di un download
+     fallito perché puoi non accorgertene. Scrivi **a blocchi piccoli e verificati**: crea
+     il file col primo blocco, poi accoda i successivi uno per uno copiandoli verbatim dal
+     contenuto già in contesto, controllando dopo ogni append che la dimensione su disco
+     (`wc -c`) sia cresciuta esattamente della lunghezza del blocco — se non corrisponde,
+     ripeti quel blocco più corto. A fine scrittura, decodifica e confronta i byte del CSV
+     risultante con `fileSize` del file Drive originale (da `search_files`): devono
+     coincidere esattamente, altrimenti il file è corrotto e non va usato.
 
-   Per i soli file piccoli e piatti `brands` e `cities` (poche colonne, liste corte) preferisci invece `read_file_content`: restituisce il contenuto in una singola chiamata come testo pulito, senza overhead base64. Il compromesso è che bypassa il parser Python: trascrivi tu a mano il contenuto nel JSON interno (`work/output/workdir/rules/brands.json` / `cities.json`) invece di produrre un `.csv` da passare a `sync-rules` per questi due file — va bene solo perché il rischio di errore di trascrizione è basso su liste corte. Lo stesso fallback (trascrizione manuale via `read_file_content`) per cluster/attributi resta l'ultima risorsa solo se il base64 si tronca comunque in scrittura **e** non è disponibile un file locale da cui decodificarlo (vedi tecnica sopra) — in quel caso verifica a campione righe e liste `Terms`/`Richiede Anche`.
+   Per i soli file piccoli e piatti `brands` e `cities` (poche colonne, liste corte) preferisci invece `read_file_content`: restituisce il contenuto in una singola chiamata come testo pulito, senza overhead base64. Il compromesso è che bypassa il parser Python: trascrivi tu a mano il contenuto nel JSON interno (`work/output/workdir/rules/brands.json` / `cities.json`) invece di produrre un `.csv` da passare a `sync-rules` per questi due file — va bene solo perché il rischio di errore di trascrizione è basso su liste corte. Per cluster/attributi, la trascrizione manuale via `read_file_content` resta l'ultima risorsa solo se anche la scrittura a blocchi del Caso B risultasse impraticabile — in quel caso verifica a campione righe e liste `Terms`/`Richiede Anche`.
 3. Materializza i soli `.csv` scaricati (cluster/attributi):
    ```bash
    python work/scripts/cluster.py --mode sync-rules --workdir work/output/workdir

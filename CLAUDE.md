@@ -81,24 +81,49 @@ Prima di ogni `--mode prepare` (una sola volta per vertical/sessione), materiali
    ```
    Sincronizza una lingua alla volta, solo quelle presenti nel CSV di input (colonna Country, default IT) per il vertical/attributi; brand e città sono unici e vanno scaricati una sola volta per sessione. Il CSV non ha l'overhead del contenitore xlsx (drawing/theme/styles/persons/content-types) né la sua inflazione: solo il testo delle celle, gonfiato del ~33% dalla codifica base64 — quindi un base64 molto più corto da trascrivere, con meno rischio di troncamento su file grandi rispetto al vecchio flusso xlsx. Se `download_file_content` restituisce un errore di permesso, fermati e segnalalo all'utente invece di procedere con regole parziali.
 
-   **Se il risultato del tool supera il limite di token di un singolo tool result** (può bastare già uno Sheet di poche centinaia di righe): l'ambiente lo salva su un file locale invece di restituirlo per intero in chat, e propone di leggerlo "in chunk sequenziali" — istruzione pensata per riassumere testo, non per scrivere un CSV byte-per-byte. **Non farlo**: decodifica il base64 direttamente da quel file salvato su disco con un comando locale, senza mai farlo transitare per il tuo contesto:
-   ```bash
-   python3 -c "
-   import json, base64
-   with open('<path del tool-result salvato>') as f:
-       data = json.load(f)
-   with open('output/workdir/sheets_raw/<vertical>/<lingua>.csv', 'wb') as out:
-       out.write(base64.b64decode(data['content']))
-   "
-   ```
-   Questo rende il fallback "trascrivi a mano da `read_file_content`" del punto 3 sotto necessario solo quando l'ambiente non espone alcun file locale da cui decodificare (nessun percorso salvato indicato dal tool).
+   **Se il risultato del tool supera il limite di token/caratteri gestibile in un solo
+   passaggio** (può bastare già uno Sheet di poche centinaia di righe): verifica come si
+   comporta l'ambiente in cui stai girando in quel momento, non assumerlo dal nome
+   dell'ambiente.
+   - **Caso A — redirezionato su un file locale** (osservato in Claude Code, es.
+     `~/.claude/projects/<progetto>/<sessione>/tool-results/<tool>-<timestamp>.txt`, JSON
+     con chiave `content` in base64), con l'istruzione di leggerlo "in chunk sequenziali"
+     — pensata per riassumere testo, non per scrivere un CSV byte-per-byte. **Non farlo**:
+     decodifica direttamente da quel file, senza mai farlo transitare per il tuo contesto:
+     ```bash
+     python3 -c "
+     import json, base64
+     with open('<path del tool-result salvato>') as f:
+         data = json.load(f)
+     with open('output/workdir/sheets_raw/<vertical>/<lingua>.csv', 'wb') as out:
+         out.write(base64.b64decode(data['content']))
+     "
+     ```
+   - **Caso B — arriva intero in chat, senza alcun redirect** (osservato su claude.ai:
+     nessun path locale analogo esiste). Qui non puoi far uscire il base64 dal tuo
+     contesto: devi scriverlo tu, ma **non in un solo comando** — un unico
+     `create_file`/heredoc con centinaia di migliaia di caratteri si tronca in silenzio
+     molto prima di quanto sembri necessario (troncamento osservato già a poche migliaia
+     di caratteri in un caso reale), e un file troncato è peggio di un download fallito
+     perché puoi non accorgertene. Scrivi **a blocchi piccoli e verificati**: crea il file
+     col primo blocco, poi accoda i successivi uno per uno copiandoli verbatim dal
+     contenuto già in contesto (non rielaborarli), controllando dopo ogni append che la
+     dimensione su disco (`wc -c`) sia cresciuta esattamente della lunghezza del blocco —
+     se non corrisponde, ripeti quel blocco più corto. A fine scrittura, decodifica e
+     confronta i byte del CSV risultante con `fileSize` del file Drive originale (da
+     `search_files`/`get_file_metadata`): devono coincidere esattamente, altrimenti il
+     file è corrotto e non va usato.
+
+   Il fallback "trascrivi a mano da `read_file_content`" del punto 3 sotto resta l'ultima
+   risorsa solo quando anche la scrittura a blocchi del Caso B risultasse impraticabile
+   (troncamento persistente, o numero di chiamate eccessivo per la dimensione del file).
 3. Esegui la materializzazione:
    ```bash
    python scripts/cluster.py --mode sync-rules --workdir output/workdir
    ```
    Lo script legge ogni `.csv`, lo tratta come singolo tab nel formato compresso (colonna Cluster/Attributo esplicita, vedi sotto) e scrive `output/workdir/rules/...` nel formato interno; segnala (senza bloccare) eventuali valori di Cluster/Attributo non riconosciuti (probabile typo). Se una lingua non è stata sincronizzata, `--mode prepare`/`analyze` la trattano semplicemente come non disponibile per quella lingua.
 
-   `read_file_content` (invece di `download_file_content`) resta un fallback accettabile solo per `brands`/`cities` (liste piatte, poche colonne, basso rischio di trascrizione) o se il base64 di un CSV grande si tronca comunque in scrittura **e** non è disponibile un file locale da cui decodificarlo direttamente (vedi nota sopra): in quel caso il contenuto va trascritto a mano nel JSON interno (`output/workdir/rules/...json`) invece che tramite `--mode sync-rules`, con l'affidabilità aggiuntiva da verificare a campione (numero di righe, liste `Terms`/`Richiede Anche` separate da `|`).
+   `read_file_content` (invece di `download_file_content`) resta un fallback accettabile solo per `brands`/`cities` (liste piatte, poche colonne, basso rischio di trascrizione) o se anche la scrittura a blocchi del Caso B risultasse impraticabile per un CSV grande (vedi nota sopra): in quel caso il contenuto va trascritto a mano nel JSON interno (`output/workdir/rules/...json`) invece che tramite `--mode sync-rules`, con l'affidabilità aggiuntiva da verificare a campione (numero di righe, liste `Terms`/`Richiede Anche` separate da `|`).
 
 Ripeti gli step 1-2 solo per un nuovo vertical/lingua o quando lo Sheet è cambiato dall'ultima sync in questa sessione; se hai già l'ID di uno Sheet da una ricerca precedente nella stessa sessione, riusalo senza richiamare `search_files`.
 
