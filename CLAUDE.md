@@ -27,10 +27,12 @@ Sei un agente SEO specializzato nel keyword clustering. Lavori all'interno di Cl
 
 ## Configurazione: ID della cartella Drive "Clustering rules"
 
-L'ID della cartella Drive **"Clustering rules"** non è scritto in questo repo (è pubblico: quell'ID equivale a un permesso di lettura, dato che la cartella è condivisa "chiunque abbia il link" — vedi "Sincronizza da Google Drive"). Vive in **`clustering-config.json`** (chiave `clustering_rules_folder_id`), un unico file alla radice del repo, escluso da git (`.gitignore`) — lo stesso identico file/formato usato anche dalle skill claude.ai (`claude-skill/SKILL.md`, `brand-cluster-rules-builder-skill/SKILL.md`, vedi i rispettivi Step 0): cambi l'ID in un solo posto e lo riusi ovunque, anche allegando/incollando questo stesso file in una chat claude.ai.
+L'ID della cartella Drive **"Clustering rules"** vive in **`clustering-config.json`** (chiave `clustering_rules_folder_id`), un unico file alla radice del repo, **tracciato in git** — lo stesso identico file/formato usato anche dalle skill claude.ai (`claude-skill/SKILL.md`, `brand-cluster-rules-builder-skill/SKILL.md`, vedi i rispettivi Step 0): cambi l'ID in un solo posto e lo riusi ovunque.
 
-- **Prima di ogni comando che lo richiede** (`search_files` sotto "Clustering rules", sync-rules, ecc.), leggi `clustering-config.json`. Se manca o non ha `clustering_rules_folder_id`, chiedi all'utente: *"Qual è l'ID della cartella Drive 'Clustering rules' della tua organizzazione?"*, poi salvalo tu in `clustering-config.json` (vedi `clustering-config.example.json` per il formato) così le sessioni successive non lo richiedono più.
-- Non proporre mai né inventare un ID di default: ognuno che clona questo repo pubblico ha (o crea) la propria cartella Drive.
+Può stare in chiaro nel repo pubblico perché la cartella **non** è più condivisa "chiunque abbia il link" (è stata ristretta all'organizzazione/agli utenti autorizzati): l'ID da solo non basta più ad accedere al contenuto, serve comunque un account con permesso esplicito. Se in futuro la condivisione tornasse "chiunque abbia il link", questo file andrebbe di nuovo trattato come una credenziale (gitignored, mai in chiaro nel repo pubblico) — verificalo con `get_file_permissions` se hai un dubbio prima di procedere.
+
+- Chi fa fork di questo repo pubblico per la propria organizzazione sostituisce semplicemente il valore in `clustering-config.json` con l'ID della propria cartella Drive.
+- Se il file manca o `clustering_rules_folder_id` è ancora vuoto/`<CLUSTERING_RULES_FOLDER_ID>`, chiedi all'utente: *"Qual è l'ID della cartella Drive 'Clustering rules' della tua organizzazione?"* e scrivilo tu in `clustering-config.json`.
 
 Nel resto di questo file, `<CLUSTERING_RULES_FOLDER_ID>` indica sempre "l'ID letto da `clustering-config.json` con questo meccanismo".
 
@@ -53,7 +55,11 @@ Una volta scelto per un brand, il vertical resta memorizzato in `output/workdir/
 
 ## Sincronizza da Google Drive
 
-Prima di ogni `--mode prepare` (una sola volta per vertical/sessione), materializza le regole da Drive in una cartella di staging locale, poi lascia che lo script le trasformi nel formato interno. **Il contenuto degli Sheet non passa mai per il tuo contesto**: la cartella "Clustering rules" e i file al suo interno sono condivisi "chiunque abbia il link" (verificato — `get_file_permissions` restituisce `{"role":"reader","type":"anyone"}`), quindi li scarichi con un `curl` anonimo diretto su disco, esattamente come il vecchio flusso GitHub, invece di leggerli con `read_file_content` e riscriverli a mano in TSV.
+Prima di ogni `--mode prepare` (una sola volta per vertical/sessione), materializza le regole da Drive in una cartella di staging locale, poi lascia che lo script le trasformi nel formato interno. **Il contenuto degli Sheet non passa mai per il tuo contesto**: la cartella "Clustering rules" e i file al suo interno sono condivisi "chiunque abbia il link" (verificato — `get_file_permissions` restituisce `{"role":"reader","type":"anyone"}`), quindi li scarichi su disco invece di leggerli con `read_file_content` e riscriverli a mano in TSV.
+
+**Un solo canale di download per ambiente, mai promiscui**:
+- **VS Code/locale**: `curl` anonimo diretto su disco (Step 2 sotto), esattamente come il vecchio flusso GitHub.
+- **claude.ai**: **solo** il tool connettore Drive `download_file_content` (Step 2 sotto). `curl` verso Drive **non è un'opzione da valutare né un fallback occasionale in questo ambiente**: il sandbox nega in modo permanente la connessione verso l'host di redirect di Drive (`*.googleusercontent.com`) — non è un problema di permessi, non si risolve e non va mai tentato, nemmeno come primo tentativo prima di ripiegare sul connettore.
 
 **Precondizione: ogni Sheet deve essere monotab**, cioè già nel formato compresso a tab unica (vedi "Formato compresso delle tab-cluster" più sotto) — questo repo scarica e materializza solo `.csv`, non più `.xlsx`, e l'export CSV di Google Sheets copre sempre e solo un tab. Se un vertical/lingua o `_Attributi/<lingua>` ha ancora più tab in formato legacy, questo flusso ne leggerebbe solo uno, perdendo silenziosamente gli altri: completane prima la migrazione a tab unica sullo Sheet.
 
@@ -62,7 +68,9 @@ Prima di ogni `--mode prepare` (una sola volta per vertical/sessione), materiali
    - attributi condivisi: dentro `_Attributi`, titolo `attributi_<lingua>` (es. `attributi_it`)
    - brand correlati: sotto "Clustering rules" (id `<CLUSTERING_RULES_FOLDER_ID>`), titolo `brands`
    - città note: sotto "Clustering rules", titolo `cities`
-2. **Scarica ogni Sheet come `.csv`** (un solo tab per Sheet, quindi un solo file — nessuna lettura/riscrittura tab per tab):
+2. **Scarica ogni Sheet come `.csv`** (un solo tab per Sheet, quindi un solo file — nessuna lettura/riscrittura tab per tab). Usa **esclusivamente** il canale del tuo ambiente corrente, mai l'altro:
+
+   **VS Code/locale** — `curl` anonimo diretto su disco:
    ```bash
    curl -sL -o output/workdir/sheets_raw/<vertical>/<lingua>.csv \
      "https://docs.google.com/spreadsheets/d/<ID_SHEET_CLUSTER>/export?format=csv"
@@ -75,7 +83,7 @@ Prima di ogni `--mode prepare` (una sola volta per vertical/sessione), materiali
    ```
    Sincronizza una lingua alla volta, solo quelle presenti nel CSV di input (colonna Country, default IT) per il vertical/attributi; brand e città sono unici e vanno scaricati una sola volta per sessione. Se un curl restituisce una pagina HTML di login invece di testo CSV, la condivisione della cartella è cambiata: fermati e segnalalo all'utente invece di procedere con regole parziali.
 
-   **Nell'ambiente claude.ai il curl è bloccato in modo permanente** (il sandbox nega la connessione verso l'host di redirect di Drive, tipicamente `*.googleusercontent.com` — non è un problema di permessi, non si risolve e non va ritentato). Lì il percorso primario è direttamente il tool connettore Drive `download_file_content`, non un fallback occasionale:
+   **claude.ai** — **solo** il tool connettore Drive `download_file_content`, per ogni Sheet, senza mai provare prima un `curl` (vedi sopra: bloccato in modo permanente dal sandbox, non un'euristica da verificare caso per caso):
 
    ```text
    download_file_content(fileId=<ID_SHEET>, exportMimeType="text/csv")

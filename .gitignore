@@ -10,9 +10,6 @@
 !.env.example
 .venv/
 
-# Local config (Drive folder ID etc.) — never commit the real value, see clustering-config.example.json
-/clustering-config.json
-
 # Python bytecode
 __pycache__/
 *.pyc
