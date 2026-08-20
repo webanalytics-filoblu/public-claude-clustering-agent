@@ -1035,11 +1035,10 @@ def classify_optional_fallback(keyword: str, rules: dict) -> tuple[str, str, flo
 # vertical/lingua per i cluster, uno Sheet "_Attributi/<lang>" condiviso fra
 # tutti i vertical per gli attributi opzionali, uno Sheet "Brands" condiviso).
 # Ogni Sheet è monotab (formato compresso, vedi sotto) e si scarica come
-# .csv — un curl anonimo sull'endpoint di export di Google Sheets
-# (.../export?format=csv) diretto su disco sotto <workdir>/sheets_raw/, o il
-# tool connettore Drive download_file_content(exportMimeType="text/csv") in
-# ambienti dove il curl non è disponibile (es. claude.ai) — mai attraverso il
-# contesto del modello in altro modo (niente read_file_content/Write per riga:
+# .csv con il tool connettore Drive download_file_content(exportMimeType=
+# "text/csv") diretto su disco sotto <workdir>/sheets_raw/ (la cartella
+# richiede un account Google autorizzato, niente curl anonimo) — mai
+# attraverso il contesto del modello in altro modo (niente read_file_content/Write per riga:
 # il connettore Drive serve solo per trovare gli ID dei file via
 # search_files). --mode sync-rules legge ogni .csv e materializza lo schema
 # JSON interno atteso da load_rules()/load_attributi()/load_brands(), sotto
@@ -2347,9 +2346,9 @@ def mode_add_brands(args):
 def mode_sync_rules(args):
     """
     Materializza in <workdir>/rules/ le regole già scaricate dagli Sheet Google
-    Drive come .csv (un file per Sheet, monotab — export?format=csv o il
-    connettore Drive download_file_content(exportMimeType="text/csv") dove il
-    curl non è disponibile, es. claude.ai) sotto <workdir>/sheets_raw/, senza
+    Drive come .csv (un file per Sheet, monotab — connettore Drive
+    download_file_content(exportMimeType="text/csv"), la cartella richiede un
+    account autorizzato) sotto <workdir>/sheets_raw/, senza
     mai passare per il contesto del modello (vedi CLAUDE.md, sezione
     "Sincronizza da Google Drive").
 

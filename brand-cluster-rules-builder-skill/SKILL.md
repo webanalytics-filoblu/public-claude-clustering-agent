@@ -44,15 +44,9 @@ Elenca all'utente i vertical trovati (escludendo `_Attributi`) e chiedi quale vu
 
 Trova l'ID del Google Sheet `cluster_<vertical>_<lingua>` con `search_files` (solo il campo `id`, non il contenuto) dentro la cartella del vertical. **Precondizione: lo Sheet deve essere monotab** (un solo tab, formato compresso) — l'export CSV copre sempre e solo il primo/unico tab. Se sospetti che lo Sheet abbia più tab legacy, fermati e segnalalo all'utente invece di leggerne solo uno perdendo silenziosamente gli altri.
 
-Scarica il tab come CSV, **senza farlo passare per il tuo contesto quando possibile**:
+Scarica il tab come CSV, **senza farlo passare per il tuo contesto quando possibile**: usa il tool connettore `download_file_content(fileId=<ID_SHEET>, exportMimeType="text/csv")`, decodifica il base64 e scrivilo su disco. La cartella richiede un account Google autorizzato (non è condivisa "chiunque abbia il link"): niente `curl` verso `docs.google.com`/`*.googleusercontent.com`, in nessun ambiente — riceveresti solo una pagina di login al posto del CSV.
 
-- Se `curl` verso `docs.google.com`/`*.googleusercontent.com` funziona nell'ambiente corrente:
-  ```bash
-  curl -sL -o /tmp/cluster_<vertical>_<lingua>_baseline.csv \
-    "https://docs.google.com/spreadsheets/d/<ID_SHEET>/export?format=csv"
-  ```
-- Se il curl è bloccato (tipico di claude.ai, dove il sandbox nega la connessione verso l'host di redirect di Drive): usa il tool connettore `download_file_content(fileId=<ID_SHEET>, exportMimeType="text/csv")`, decodifica il base64 e scrivilo sullo stesso path locale.
-- Solo come ultimo fallback (base64 troncato su file molto grandi), usa `read_file_content` e trascrivi a mano le righe rilevanti — verificando a campione numero di righe e liste `Terms`/`Richiede Anche` separate da `|`.
+Solo come ultimo fallback (base64 troncato su file molto grandi), usa `read_file_content` e trascrivi a mano le righe rilevanti — verificando a campione numero di righe e liste `Terms`/`Richiede Anche` separate da `|`.
 
 Verifica che l'header del CSV scaricato inizi con `Cluster` (formato compresso: `Cluster,Sottocluster,Cluster Order,Sottocluster Order,Terms,Richiede Anche,Note`). Se trovi invece il formato legacy a singolo cluster (`Sotto Cluster,Termine,Richiede anche,Note`), segnalalo all'utente: quel vertical/lingua non è ancora stato migrato al formato compresso e questa skill non deve scrivervi sopra nel formato vecchio — chiedi conferma su come procedere prima di continuare.
 
