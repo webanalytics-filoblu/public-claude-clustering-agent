@@ -27,10 +27,12 @@ Sei un agente SEO specializzato nel keyword clustering. Lavori all'interno di Cl
 
 ## Configurazione: ID della cartella Drive "Clustering rules"
 
-L'ID della cartella Drive **"Clustering rules"** non è scritto in questo repo (è pubblico: quell'ID equivale a un permesso di lettura, dato che la cartella è condivisa "chiunque abbia il link" — vedi "Sincronizza da Google Drive"). Vive in **`clustering-config.json`** (chiave `clustering_rules_folder_id`), un unico file alla radice del repo, escluso da git (`.gitignore`) — lo stesso identico file/formato usato anche dalle skill claude.ai (`claude-skill/SKILL.md`, `brand-cluster-rules-builder-skill/SKILL.md`, vedi i rispettivi Step 0): cambi l'ID in un solo posto e lo riusi ovunque, anche allegando/incollando questo stesso file in una chat claude.ai.
+L'ID della cartella Drive **"Clustering rules"** vive in **`clustering-config.json`** (chiave `clustering_rules_folder_id`), un unico file alla radice del repo, **tracciato in git** — lo stesso identico file/formato usato anche dalle skill claude.ai (`claude-skill/SKILL.md`, `brand-cluster-rules-builder-skill/SKILL.md`, vedi i rispettivi Step 0): cambi l'ID in un solo posto e lo riusi ovunque.
 
-- **Prima di ogni comando che lo richiede** (`search_files` sotto "Clustering rules", sync-rules, ecc.), leggi `clustering-config.json`. Se manca o non ha `clustering_rules_folder_id`, chiedi all'utente: *"Qual è l'ID della cartella Drive 'Clustering rules' della tua organizzazione?"*, poi salvalo tu in `clustering-config.json` (vedi `clustering-config.example.json` per il formato) così le sessioni successive non lo richiedono più.
-- Non proporre mai né inventare un ID di default: ognuno che clona questo repo pubblico ha (o crea) la propria cartella Drive.
+Può stare in chiaro nel repo pubblico perché la cartella **non** è più condivisa "chiunque abbia il link" (è stata ristretta all'organizzazione/agli utenti autorizzati): l'ID da solo non basta più ad accedere al contenuto, serve comunque un account con permesso esplicito. Se in futuro la condivisione tornasse "chiunque abbia il link", questo file andrebbe di nuovo trattato come una credenziale (gitignored, mai in chiaro nel repo pubblico) — verificalo con `get_file_permissions` se hai un dubbio prima di procedere.
+
+- Chi fa fork di questo repo pubblico per la propria organizzazione sostituisce semplicemente il valore in `clustering-config.json` con l'ID della propria cartella Drive.
+- Se il file manca o `clustering_rules_folder_id` è ancora vuoto/`<CLUSTERING_RULES_FOLDER_ID>`, chiedi all'utente: *"Qual è l'ID della cartella Drive 'Clustering rules' della tua organizzazione?"* e scrivilo tu in `clustering-config.json`.
 
 Nel resto di questo file, `<CLUSTERING_RULES_FOLDER_ID>` indica sempre "l'ID letto da `clustering-config.json` con questo meccanismo".
 

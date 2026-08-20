@@ -26,7 +26,7 @@ code public-claude-clustering-agent/
 # 3. Avvia Claude Code ed effettua il login con il tuo account Pro
 ```
 
-Alla prima richiesta che tocca la cartella Drive "Clustering rules", Claude Code ti chiederà l'ID di quella cartella (o della tua copia, se stai partendo da zero) e lo salverà in **`clustering-config.json`** (gitignored — vedi `clustering-config.example.json` per il formato) per le sessioni successive. Non serve farlo a mano, ma puoi anche precompilarlo tu prima di iniziare. È lo stesso identico file usato anche dalle skill claude.ai (`claude-skill`, `brand-cluster-rules-builder-skill`): un solo file da tenere aggiornato, riusabile in entrambi i contesti — puoi anche allegarlo/incollarlo in una chat claude.ai invece di reinserire l'ID a mano.
+L'ID della cartella Drive "Clustering rules" vive in **`clustering-config.json`**, alla radice del repo — se stai partendo da una tua copia/fork, sostituiscilo con l'ID della tua cartella prima di iniziare (o lascialo vuoto: Claude Code te lo chiederà alla prima richiesta che lo tocca e lo salverà lì). È lo stesso identico file usato anche dalle skill claude.ai (`claude-skill`, `brand-cluster-rules-builder-skill`): un solo file da tenere aggiornato, riusabile in entrambi i contesti.
 
 ## Utilizzo
 
@@ -132,7 +132,7 @@ Altri Cluster comuni (es. Squadre di Calcio, Maglieria e Cashmere, Tessuti e Mat
 
 Le regole che determinano Cluster, Sotto Cluster e le colonne opzionali **non sono nel codice**: vivono in Google Sheet condivisi su Drive, nella cartella **"Clustering rules"**. Chiunque abbia accesso a quella cartella può aggiungere un termine, un Sotto Cluster o un nuovo valore di attributo senza scrivere una riga di Python — la modifica diventa effettiva alla sincronizzazione successiva (`--mode sync-rules`, eseguita dall'agente Claude Code a inizio sessione di clustering, vedi [CLAUDE.md](CLAUDE.md)).
 
-L'ID di questa cartella **non è in questo repo pubblico** (equivarrebbe a un permesso di lettura, dato che la condivisione è "chiunque abbia il link"): ognuno lo configura nel proprio `clustering-config.json` locale (gitignored, alla radice del repo) — vedi [CLAUDE.md](CLAUDE.md), sezione "Configurazione: ID della cartella Drive", e `clustering-config.example.json` per il formato.
+L'ID di questa cartella vive in `clustering-config.json`, alla radice del repo — vedi [CLAUDE.md](CLAUDE.md), sezione "Configurazione: ID della cartella Drive", per il formato e per il motivo per cui può stare in chiaro nel repo pubblico (la cartella non è più condivisa "chiunque abbia il link").
 
 ### Struttura della cartella Drive
 
