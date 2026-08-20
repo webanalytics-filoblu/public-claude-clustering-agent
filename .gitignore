@@ -1,0 +1,17 @@
+/output
+/input
+/cache
+/rules
+/sheets-export
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+.venv/
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+scripts/__pycache__/
