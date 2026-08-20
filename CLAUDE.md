@@ -25,9 +25,18 @@ Sei un agente SEO specializzato nel keyword clustering. Lavori all'interno di Cl
 - Salvi sempre in `output/` dopo ogni brand completato
 - **Dopo ogni merge**, presenti sempre all'utente la tabella di riepilogo finale (vedi sezione "Riepilogo finale" più sotto)
 
+## Configurazione: ID della cartella Drive "Clustering rules"
+
+L'ID della cartella Drive **"Clustering rules"** non è scritto in questo repo (è pubblico: quell'ID equivale a un permesso di lettura, dato che la cartella è condivisa "chiunque abbia il link" — vedi "Sincronizza da Google Drive"). Vive in **`clustering-config.json`** (chiave `clustering_rules_folder_id`), un unico file alla radice del repo, escluso da git (`.gitignore`) — lo stesso identico file/formato usato anche dalle skill claude.ai (`claude-skill/SKILL.md`, `brand-cluster-rules-builder-skill/SKILL.md`, vedi i rispettivi Step 0): cambi l'ID in un solo posto e lo riusi ovunque, anche allegando/incollando questo stesso file in una chat claude.ai.
+
+- **Prima di ogni comando che lo richiede** (`search_files` sotto "Clustering rules", sync-rules, ecc.), leggi `clustering-config.json`. Se manca o non ha `clustering_rules_folder_id`, chiedi all'utente: *"Qual è l'ID della cartella Drive 'Clustering rules' della tua organizzazione?"*, poi salvalo tu in `clustering-config.json` (vedi `clustering-config.example.json` per il formato) così le sessioni successive non lo richiedono più.
+- Non proporre mai né inventare un ID di default: ognuno che clona questo repo pubblico ha (o crea) la propria cartella Drive.
+
+Nel resto di questo file, `<CLUSTERING_RULES_FOLDER_ID>` indica sempre "l'ID letto da `clustering-config.json` con questo meccanismo".
+
 ## Vertical del ruleset
 
-Il ruleset vive nella cartella Google Drive **"Clustering rules"** (id `1sBd0k1QSc23E_5ii6Nc1DtZ0oD1GjusS`, condivisa con tutta l'organizzazione): una sottocartella per vertical, con dentro un Google Sheet per lingua. **Il vertical non è una lista fissa nel codice**: prima di ogni `--mode prepare`, elenca le sottocartelle reali sotto "Clustering rules" (`search_files` con `parentId = '1sBd0k1QSc23E_5ii6Nc1DtZ0oD1GjusS' and mimeType = 'application/vnd.google-apps.folder'`, escludendo quelle con prefisso `_` come `_Attributi`) e proponi all'utente il nome più plausibile **tra quelli effettivamente presenti**, con una domanda tipo: *"Per [brand], quale vertical uso: [elenco cartelle trovate]?"*
+Il ruleset vive nella cartella Google Drive **"Clustering rules"** (id `<CLUSTERING_RULES_FOLDER_ID>`, condivisa con tutta l'organizzazione): una sottocartella per vertical, con dentro un Google Sheet per lingua. **Il vertical non è una lista fissa nel codice**: prima di ogni `--mode prepare`, elenca le sottocartelle reali sotto "Clustering rules" (`search_files` con `parentId = '<CLUSTERING_RULES_FOLDER_ID>' and mimeType = 'application/vnd.google-apps.folder'`, escludendo quelle con prefisso `_` come `_Attributi`) e proponi all'utente il nome più plausibile **tra quelli effettivamente presenti**, con una domanda tipo: *"Per [brand], quale vertical uso: [elenco cartelle trovate]?"*
 
 Vertical tipici oggi (possono cambiare: verifica sempre l'elenco reale su Drive):
 
@@ -51,7 +60,7 @@ Prima di ogni `--mode prepare` (una sola volta per vertical/sessione), materiali
 1. **Trova l'ID di ogni Sheet** con `search_files` (qui ti serve solo il campo `id`, **non** il contenuto — non chiamare mai `read_file_content` in questo flusso). Naming convention osservata su Drive (verificala comunque, può cambiare):
    - cluster del vertical/lingua: dentro la cartella del vertical, titolo `cluster_<vertical>_<lingua>` (es. `cluster_fashion_it`)
    - attributi condivisi: dentro `_Attributi`, titolo `attributi_<lingua>` (es. `attributi_it`)
-   - brand correlati: sotto "Clustering rules" (id `1sBd0k1QSc23E_5ii6Nc1DtZ0oD1GjusS`), titolo `brands`
+   - brand correlati: sotto "Clustering rules" (id `<CLUSTERING_RULES_FOLDER_ID>`), titolo `brands`
    - città note: sotto "Clustering rules", titolo `cities`
 2. **Scarica ogni Sheet come `.csv`** (un solo tab per Sheet, quindi un solo file — nessuna lettura/riscrittura tab per tab):
    ```bash

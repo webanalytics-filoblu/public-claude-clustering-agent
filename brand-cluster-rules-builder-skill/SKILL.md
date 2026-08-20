@@ -7,6 +7,8 @@ description: "Genera il CSV completo (regole standard + nuove righe brand con Cl
 
 Skill proprietaria dell'organizzazione (ID `be71789f-9195-4df2-83ae-88e14cdb94ef`).
 
+**Configurazione**: questa skill referenzia più avanti l'ID della cartella Drive "Clustering rules" come `<CLUSTERING_RULES_FOLDER_ID>`. Questo ID **non vive nel repo pubblico** (equivarrebbe a un permesso di lettura sulla cartella, condivisa "chiunque abbia il link") ed è lo stesso identico dato usato dal repo lato VS Code e dalla skill `seo-keyword-clustering` (file `clustering-config.json` alla radice del repo pubblico, vedi `CLAUDE.md` — schema in `clustering-config.example.json`): un solo file/valore da mantenere aggiornato, riusabile ovunque. Se l'utente allega o incolla in questa chat il contenuto del suo `clustering-config.json`, usa il valore di `clustering_rules_folder_id` da lì; altrimenti chiedi *"Qual è l'ID della cartella Drive 'Clustering rules' della tua organizzazione?"*. Se durante l'uso trovi ancora il valore placeholder `<CLUSTERING_RULES_FOLDER_ID>`, fermati e chiedi all'utente l'ID prima di proseguire.
+
 Produce il **CSV completo** (righe standard del vertical/lingua + nuove righe brand-specifiche già unite, con `Cluster Order`/`Sottocluster Order` compilati in modo coerente dove serve, meno gli eventuali Cluster/Sottocluster non pertinenti che l'utente ha scelto di rimuovere) nel formato compresso `Cluster,Sottocluster,Cluster Order,Sottocluster Order,Terms,Richiede Anche,Note`, come **file dedicato al brand**, separato dallo Sheet condiviso `cluster_<vertical>_<lingua>` che resta la baseline di riferimento per tutti i brand del vertical — non un frammento da incollare a mano in coda, ma il file intero pronto all'uso per quel brand.
 
 ## Input attesi
@@ -20,12 +22,12 @@ Se manca uno di questi quattro input, chiedilo esplicitamente prima di procedere
 
 ## Step 0 — Scegli vertical e lingua, scarica lo Sheet delle regole standard
 
-Le regole standard vivono in Google Drive, cartella "Clustering rules" (id `1sBd0k1QSc23E_5ii6Nc1DtZ0oD1GjusS`). Al suo interno una sottocartella per vertical (es. `fashion`, `shoes`, `intimo`, `multibrand`), ciascuna con un Google Sheet per lingua, titolo `cluster_<vertical>_<lingua>` (es. `cluster_fashion_it`).
+Le regole standard vivono in Google Drive, cartella "Clustering rules" (id `<CLUSTERING_RULES_FOLDER_ID>`). Al suo interno una sottocartella per vertical (es. `fashion`, `shoes`, `intimo`, `multibrand`), ciascuna con un Google Sheet per lingua, titolo `cluster_<vertical>_<lingua>` (es. `cluster_fashion_it`).
 
 **Ignora sempre**: la cartella `_Attributi` (attributi condivisi come Genere/Stagionalità, non regole cluster) e gli Sheet `brands` / `cities` (liste di normalizzazione, non regole di clustering). Ignora anche eventuali cartelle già dedicate a un brand specifico: non sono il file "standard" da estendere, sono già un output di una run precedente di questa skill.
 
 ```
-Google Drive:search_files query="parentId = '1sBd0k1QSc23E_5ii6Nc1DtZ0oD1GjusS' and mimeType = 'application/vnd.google-apps.folder'"
+Google Drive:search_files query="parentId = '<CLUSTERING_RULES_FOLDER_ID>' and mimeType = 'application/vnd.google-apps.folder'"
 ```
 
 Elenca all'utente i vertical trovati (escludendo `_Attributi`) e chiedi quale vuole estendere, a meno che l'utente non l'abbia già specificato (es. "brand X, settore scarpe"). Poi chiedi la lingua se non è ovvia dal CSV keyword (default `it`).
