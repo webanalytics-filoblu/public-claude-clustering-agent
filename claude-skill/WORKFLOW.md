@@ -2,7 +2,9 @@
 
 Questo file è la fonte di verità del flusso di clustering, scaricato da `SKILL.md` a inizio sessione in `work/WORKFLOW.md`. Presuppone che lo Step 0 di `SKILL.md` sia già stato eseguito: `REPO`, `BRANCH` sono già in ambiente, e `work/scripts/cluster.py` è già stato scaricato dal repo pubblico, senza alcun token GitHub.
 
-Il ruleset (cluster, attributi, brand correlati) vive in Google Sheet condivisi su Drive, nella cartella **"Clustering rules"** — non in questo repo. Ogni Sheet è monotab (formato compresso, vedi CLAUDE.md nel repo): questo flusso scarica e materializza solo `.csv`, mai `.xlsx`, perché l'export CSV di Drive copre sempre e solo un tab. La cartella richiede un account Google autorizzato (non è condivisa "chiunque abbia il link"): niente `curl` verso Drive, né qui né nel repo VS Code — in questo ambiente (claude.ai) il sandbox nega comunque in modo permanente la connessione verso l'host di redirect di Drive, quindi non andrebbe ritentato in ogni caso. Il percorso è quindi lo stesso in ogni ambiente: il tool connettore Drive `download_file_content` (vedi Step 0) — il connettore serve anche per trovare gli ID dei file (`search_files`), ma per il *contenuto* delle Sheet di regole passa da `download_file_content`, non da `read_file_content` (quello resta riservato ai soli file piatti e piccoli, `brands`/`cities`, vedi Step 0). **Il connettore sa comunque solo creare file nuovi o leggere quelli esistenti: non può scrivere/aggiungere righe su uno Sheet già esistente.** Per questo, quando emergono nuove regole o brand competitor durante il clustering, non vengono scritti automaticamente da nessuna parte: li applichi solo alla copia locale in `work/output/workdir/rules/` (utile per riclassificare subito in questa sessione) e produci un blocco di testo pronto da incollare a mano nello Sheet giusto, che presenti sempre all'utente.
+Il ruleset (cluster, attributi, brand correlati) vive in Google Sheet condivisi su Drive, nella cartella **"Clustering rules"** — non in questo repo. Ogni Sheet è monotab (formato compresso, vedi CLAUDE.md nel repo): questo flusso scarica e materializza solo `.csv`, mai `.xlsx`, perché l'export CSV di Drive copre sempre e solo un tab. La cartella richiede un account Google autorizzato (non è condivisa "chiunque abbia il link"): niente `curl` anonimo verso Drive, né qui né nel repo VS Code.
+
+Il canale di **default** per scaricare il *contenuto* di quegli Sheet è il fast path OAuth a refresh token (`work/scripts/cluster.py --mode fetch-sheets`, vedi Step 0): chiama direttamente `oauth2.googleapis.com`/`www.googleapis.com` con un token — non passa dall'host di redirect anonimo `*.googleusercontent.com` che questo sandbox nega in modo permanente, quindi non è soggetto a quel blocco. Il tool connettore Drive (`search_files`/`download_file_content`/`read_file_content`) resta necessario solo per: trovare gli ID dei file (`search_files`), recuperare una volta per sessione il file di credenziali `google_auth.json` (`read_file_content`, file piccolo e piatto, non un export CSV — la sandbox è effimera, quindi non persiste da una chat all'altra come sul repo VS Code) e, come **fallback**, scaricare il contenuto degli Sheet quando il fast path non è disponibile (credenziali non recuperabili, refresh token scaduto, errore dello script). Solo in quel caso di fallback il *contenuto* delle Sheet di regole passa da `download_file_content`, non da `read_file_content` (quello resta riservato ai soli file piatti e piccoli, `brands`/`cities`/`google_auth.json`, vedi Step 0). **Il connettore sa comunque solo creare file nuovi o leggere quelli esistenti: non può scrivere/aggiungere righe su uno Sheet già esistente.** Per questo, quando emergono nuove regole o brand competitor durante il clustering, non vengono scritti automaticamente da nessuna parte: li applichi solo alla copia locale in `work/output/workdir/rules/` (utile per riclassificare subito in questa sessione) e produci un blocco di testo pronto da incollare a mano nello Sheet giusto, che presenti sempre all'utente.
 
 ## Come ti comporti
 
@@ -14,16 +16,30 @@ Il ruleset (cluster, attributi, brand correlati) vive in Google Sheet condivisi 
 
 Elenca le sottocartelle reali sotto la cartella Drive "Clustering rules" (id `$CLUSTERING_RULES_FOLDER_ID`, già esportata dallo Step 0 di `SKILL.md` — se manca o è ancora il placeholder, fermati e chiedi all'utente l'ID della sua cartella prima di continuare) con `search_files` (`parentId = '$CLUSTERING_RULES_FOLDER_ID' and mimeType = 'application/vnd.google-apps.folder'`), escludendo quelle con prefisso `_` (es. `_Attributi`, non un vertical). Chiedi sempre all'utente quale vertical usare **tra quelli effettivamente trovati**, proponendo il più plausibile in base a brand/settore — non esiste una lista fissa da indovinare.
 
-Una volta scelto il vertical, sincronizza il ruleset. **Il contenuto degli Sheet non passa quasi mai per il tuo contesto** — usa sempre il tool connettore Drive, mai `curl` verso `docs.google.com`/`*.googleusercontent.com`: la cartella richiede un account autorizzato, e in questo ambiente (claude.ai) il sandbox nega comunque la connessione in modo permanente. Non è un problema di permessi, non si risolve e non va ritentato con varianti di flag/redirect.
+Una volta scelto il vertical, sincronizza il ruleset. Il canale di **default** per il contenuto degli Sheet è il fast path OAuth (Step 0.2 sotto), non il connettore: usalo prima, e ricorri al connettore solo come fallback, mai a `curl` verso `docs.google.com`/`*.googleusercontent.com` — la cartella richiede un account autorizzato, e in questo ambiente (claude.ai) il sandbox nega comunque quella connessione in modo permanente. Non è un problema di permessi, non si risolve e non va ritentato con varianti di flag/redirect.
 
-1. **Trova l'ID di ogni Sheet** con `search_files` (solo il campo `id`, non il contenuto). Naming convention osservata su Drive (verificala comunque, può cambiare):
+### Step 0.1 — Trova gli ID degli Sheet
+
+**Trova l'ID di ogni Sheet** con `search_files` (solo il campo `id`, non il contenuto). Naming convention osservata su Drive (verificala comunque, può cambiare):
    - cluster del vertical/lingua: dentro la cartella del vertical scelto, titolo `cluster_<vertical>_<lingua>` (es. `cluster_fashion_it`)
    - attributi condivisi: dentro `_Attributi`, titolo `attributi_<lingua>` (es. `attributi_it`)
    - brand correlati: sotto "Clustering rules", titolo `brands`
    - città note: sotto "Clustering rules", titolo `cities`
 
-   Ognuno di questi Sheet deve essere **monotab** (formato compresso, vedi CLAUDE.md nel repo, sezione "Formato compresso delle tab-cluster") — l'export `.csv` copre sempre e solo il primo/unico tab, quindi se un Sheet ha ancora più tab in formato legacy questo flusso ne leggerebbe solo uno, perdendo silenziosamente gli altri.
-2. **Scarica ogni Sheet come `.csv`**, un file per Sheet (un solo tab). Per `cluster_<vertical>_<lingua>` e `attributi_<lingua>` (regole vere e proprie: centinaia di righe) usa il connettore Drive:
+Ognuno di questi Sheet deve essere **monotab** (formato compresso, vedi CLAUDE.md nel repo, sezione "Formato compresso delle tab-cluster") — l'export `.csv` copre sempre e solo il primo/unico tab, quindi se un Sheet ha ancora più tab in formato legacy questo flusso ne leggerebbe solo uno, perdendo silenziosamente gli altri.
+
+### Step 0.2 — Fast path (default): recupera google_auth.json e scarica via OAuth
+
+1. **Recupera `google_auth.json`** (una volta per sessione — la sandbox è effimera, quindi non persiste da una chat all'altra come sul repo VS Code): prova a recuperarlo tu stesso, di tua iniziativa, dalla cartella privata Drive indicata da `google_auth_folder_id` in `work/clustering-config.json` (nome file `google_auth_filename`, default `google_auth.json`) con `search_files`/`read_file_content` — file piccolo e piatto, non uno Sheet, nessun export CSV necessario — e scrivilo su disco, es. `work/google_auth.json`. Questo è l'**unico** uso del connettore Drive previsto in questo step: non serve per scaricare il contenuto delle Sheet di regole. Se il recupero fallisce (cartella non accessibile, file assente, JSON invalido, campi obbligatori mancanti), il fast path non è disponibile in questa sessione: salta direttamente allo Step 0.3 (fallback via connettore), senza chiedere all'utente di dettare client id/secret/refresh token in chat.
+2. **Scarica tutti gli Sheet in un colpo**, in parallelo, senza far transitare alcun base64 dal tuo contesto:
+   ```bash
+   python work/scripts/cluster.py --mode fetch-sheets --workdir work/output/workdir --auth-file work/google_auth.json --manifest <path manifest.json>
+   ```
+   dove `<path manifest.json>` è un JSON `{"<path relativo sotto sheets_raw/>": "<file_id>"}` costruito con gli ID trovati allo Step 0.1, es. `{"brands.csv": "1AbC...", "cities.csv": "1XyZ...", "_attributi/it.csv": "1Def...", "fashion/it.csv": "1Ghi..."}`. Popola `work/output/workdir/sheets_raw/...` esattamente come il flusso via connettore. Se fallisce (credenziali scadute, refresh token invalido, errore di rete), passa allo Step 0.3 solo per i file falliti.
+
+### Step 0.3 — Fallback: connettore Drive (solo se il fast path non è disponibile)
+
+Scarica ogni Sheet come `.csv`, un file per Sheet (un solo tab). Per `cluster_<vertical>_<lingua>` e `attributi_<lingua>` (regole vere e proprie: centinaia di righe) usa il connettore Drive:
    ```text
    download_file_content(fileId=<ID_SHEET>, exportMimeType="text/csv")
    ```
@@ -66,13 +82,16 @@ Una volta scelto il vertical, sincronizza il ruleset. **Il contenuto degli Sheet
      coincidere esattamente, altrimenti il file è corrotto e non va usato.
 
    Per i soli file piccoli e piatti `brands` e `cities` (poche colonne, liste corte) preferisci invece `read_file_content`: restituisce il contenuto in una singola chiamata come testo pulito, senza overhead base64. Il compromesso è che bypassa il parser Python: trascrivi tu a mano il contenuto nel JSON interno (`work/output/workdir/rules/brands.json` / `cities.json`) invece di produrre un `.csv` da passare a `sync-rules` per questi due file — va bene solo perché il rischio di errore di trascrizione è basso su liste corte. Per cluster/attributi, la trascrizione manuale via `read_file_content` resta l'ultima risorsa solo se anche la scrittura a blocchi del Caso B risultasse impraticabile — in quel caso verifica a campione righe e liste `Terms`/`Richiede Anche`.
-3. Materializza i soli `.csv` scaricati (cluster/attributi):
-   ```bash
-   python work/scripts/cluster.py --mode sync-rules --workdir work/output/workdir
-   ```
-   Lo script legge ogni `.csv` come tab unica e riconosce automaticamente il formato compresso dall'header. Segnala all'utente eventuali valori di Cluster/Attributo non riconosciuti (probabile typo), senza bloccare il resto.
 
-Se il fetch (da Drive via `search_files`, `download_file_content` o `read_file_content`) fallisce o il connettore non è disponibile, fermati e segnalalo all'utente invece di procedere con regole parziali o mancanti — non ritentare con `curl` in questo ambiente.
+### Step 0.4 — Materializza
+
+Materializza i `.csv` scaricati (cluster/attributi), qualunque sia stato il canale usato allo Step 0.2/0.3:
+```bash
+python work/scripts/cluster.py --mode sync-rules --workdir work/output/workdir
+```
+Lo script legge ogni `.csv` come tab unica e riconosce automaticamente il formato compresso dall'header. Segnala all'utente eventuali valori di Cluster/Attributo non riconosciuti (probabile typo), senza bloccare il resto.
+
+Se il fetch fallisce su entrambi i canali (fast path OAuth e connettore Drive via `search_files`/`download_file_content`/`read_file_content`), fermati e segnalalo all'utente invece di procedere con regole parziali o mancanti — non ritentare con `curl` in questo ambiente.
 
 ## Step 1 — Prepara con ruleset
 
@@ -224,7 +243,7 @@ Il CSV può contenere una colonna **Country** (`IT`, `EN`, `ES`, `FR`, `DE`). Og
 
 - **Nessuna scrittura diretta sugli Sheet**: le regole/brand approvati in sessione restano nella copia locale della sandbox (`work/output/workdir/rules/`) e nei blocchi `paste_*.txt`. Diventano permanenti solo quando qualcuno (in questa sessione o in un'altra) li incolla a mano nello Sheet giusto — non c'è più un giro di "esporta e importa altrove": chi ha accesso allo Sheet incolla e basta.
 - Il repo GitHub usato in `SKILL.md` per scaricare `scripts/cluster.py` e questo file è **pubblico**: nessun token o credenziale richiesta per leggerlo, solo `curl` anonimo su `raw.githubusercontent.com`.
-- Serve il **connettore Google Drive** autorizzato sull'account claude.ai del collega (con accesso alla cartella "Clustering rules", che richiede un account autorizzato — non è condivisa "chiunque abbia il link"), sia per trovare gli ID dei file via `search_files`, sia per scaricarne il contenuto via `download_file_content`/`read_file_content` (vedi Step 0) — non esiste un percorso via `curl` anonimo, né qui né nel repo VS Code: la cartella non è accessibile senza autenticazione, e in questo ambiente il sandbox blocca comunque in modo permanente la connessione verso l'host di redirect di Drive. Se il connettore non è autorizzato o l'account non ha accesso alla cartella, fermati e chiedi di sistemarlo dalle impostazioni connettori di claude.ai (o di farsi condividere l'accesso dal proprietario della cartella).
+- Serve il **connettore Google Drive** autorizzato sull'account claude.ai del collega (con accesso alla cartella "Clustering rules", che richiede un account autorizzato — non è condivisa "chiunque abbia il link"): non più come canale primario per il contenuto delle Sheet, ma per trovare gli ID dei file via `search_files`, per recuperare `google_auth.json` (necessario al fast path OAuth di default, Step 0.2) e come fallback via `download_file_content`/`read_file_content` quando il fast path non è disponibile (vedi Step 0) — non esiste un percorso via `curl` anonimo verso Drive, né qui né nel repo VS Code: la cartella non è accessibile senza autenticazione, e in questo ambiente il sandbox blocca comunque in modo permanente la connessione verso l'host di redirect di Drive. Se il connettore non è autorizzato o l'account non ha accesso alla cartella, fermati e chiedi di sistemarlo dalle impostazioni connettori di claude.ai (o di farsi condividere l'accesso dal proprietario della cartella).
 - Nessuna persistenza tra conversazioni diverse: l'utente deve ricaricare il CSV a ogni nuova sessione, e se le regole/brand approvati in sessione non vengono incollati sugli Sheet prima di chiudere, si perdono (restano solo nella sandbox effimera).
 - Nessuna cache tra run: keyword già viste in run precedenti (in altre sessioni) non vengono ricordate, solo le regole esplicite lo sono.
 - Su CSV molto grandi (decine di migliaia di righe), valuta di suddividere il lavoro per brand per stare dentro ai limiti di tempo/esecuzione della sandbox.

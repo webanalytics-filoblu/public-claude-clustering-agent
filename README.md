@@ -25,10 +25,13 @@ code public-claude-clustering-agent/
 
 # 3. Avvia Claude Code ed effettua il login con il tuo account Pro
 
-# 4. Configura un server MCP Google Drive in Claude Code (stessi tool
-#    search_files/download_file_content usati su claude.ai) — la cartella
-#    "Clustering rules" richiede un account autorizzato, non c'è un
-#    percorso via curl anonimo
+# 4. Recupera una volta google_auth.json (refresh token OAuth): è il canale
+#    di DEFAULT per scaricare le regole dagli Sheet, non il connettore MCP.
+#    Configura comunque anche un server MCP Google Drive in Claude Code
+#    (stessi tool search_files/download_file_content usati su claude.ai):
+#    serve solo per trovare gli ID dei file, recuperare google_auth.json la
+#    prima volta e come fallback se il canale OAuth non è disponibile —
+#    vedi CLAUDE.md, sezione "Sincronizza da Google Drive"
 ```
 
 L'ID della cartella Drive "Clustering rules" vive in **`clustering-config.json`**, alla radice del repo — se stai partendo da una tua copia/fork, sostituiscilo con l'ID della tua cartella prima di iniziare (o lascialo vuoto: Claude Code te lo chiederà alla prima richiesta che lo tocca e lo salverà lì). È lo stesso identico file usato anche dalle skill claude.ai (`claude-skill`, `brand-cluster-rules-builder-skill`): un solo file da tenere aggiornato, riusabile in entrambi i contesti.
@@ -235,7 +238,7 @@ Entrambi sono condivisi da tutti i vertical e lingue: non vanno duplicati.
 
 ### Dopo la modifica
 
-Le modifiche allo Sheet non sono immediate: vanno prima riscaricate come `.csv` con il tool connettore Drive `download_file_content(exportMimeType="text/csv")` (stesso canale in VS Code e su claude.ai — la cartella richiede un account autorizzato, niente `curl` anonimo) e poi materializzate in locale con
+Le modifiche allo Sheet non sono immediate: vanno prima riscaricate come `.csv` — di **default** con `--mode fetch-sheets` (canale OAuth a refresh token, `google_auth.json`, vedi CLAUDE.md), o in **fallback** con il tool connettore Drive `download_file_content(exportMimeType="text/csv")` (stesso canale in VS Code e su claude.ai — la cartella richiede un account autorizzato, niente `curl` anonimo; il connettore resta comunque necessario per trovare gli ID dei file con `search_files` e per recuperare `google_auth.json` la prima volta) — e poi materializzate in locale con
 
 ```bash
 python scripts/cluster.py --mode sync-rules --workdir output/workdir

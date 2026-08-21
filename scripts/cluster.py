@@ -1047,13 +1047,15 @@ def classify_optional_fallback(keyword: str, rules: dict) -> tuple[str, str, flo
 # Le regole vivono nella cartella Drive "Clustering rules" (uno Sheet per
 # vertical/lingua per i cluster, uno Sheet "_Attributi/<lang>" condiviso fra
 # tutti i vertical per gli attributi opzionali, uno Sheet "Brands" condiviso).
-# Ogni Sheet è monotab (formato compresso, vedi sotto) e si scarica come
-# .csv con il tool connettore Drive download_file_content(exportMimeType=
-# "text/csv") diretto su disco sotto <workdir>/sheets_raw/ (la cartella
-# richiede un account Google autorizzato, niente curl anonimo) — mai
-# attraverso il contesto del modello in altro modo (niente read_file_content/Write per riga:
-# il connettore Drive serve solo per trovare gli ID dei file via
-# search_files). --mode sync-rules legge ogni .csv e materializza lo schema
+# Ogni Sheet è monotab (formato compresso, vedi sotto) e si scarica come .csv
+# diretto su disco sotto <workdir>/sheets_raw/, di default con --mode
+# fetch-sheets (OAuth a refresh token, vedi mode_fetch_sheets) — mai
+# attraverso il contesto del modello. Il tool connettore Drive resta
+# necessario solo per trovare gli ID dei file via search_files e per
+# recuperare google_auth.json, oppure come fallback (download_file_content(
+# exportMimeType="text/csv")) se il fast path non è disponibile (la cartella
+# richiede comunque un account Google autorizzato, niente curl anonimo in
+# nessun caso). --mode sync-rules legge ogni .csv e materializza lo schema
 # JSON interno atteso da load_rules()/load_attributi()/load_brands(), sotto
 # <workdir>/rules/.
 #
