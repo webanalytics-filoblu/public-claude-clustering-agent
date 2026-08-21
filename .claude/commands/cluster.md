@@ -49,7 +49,7 @@ Il vertical scelto viene salvato in `output/workdir/vertical.json` e riletto aut
 Prima di ogni `--mode prepare` (una sola volta per vertical/lingua/sessione), materializza le regole da Drive in locale — vedi [CLAUDE.md](../../CLAUDE.md), sezione "Sincronizza da Google Drive", per il dettaglio di `search_files`/download/`sync-rules`. In breve:
 
 1. Trova gli ID degli Sheet con `search_files` (naming: `cluster_<vertical>_<lingua>` nella cartella del vertical, `attributi_<lingua>` dentro `_Attributi`, `brands` e `cities` sotto "Clustering rules"). Ogni Sheet deve essere monotab (formato compresso, vedi CLAUDE.md) — l'export `.csv` copre solo il primo/unico tab.
-2. Scarica ogni Sheet come `.csv` in `output/workdir/sheets_raw/...` con il tool connettore Drive `download_file_content(exportMimeType="text/csv")` + scrittura su disco — stesso canale in VS Code e su claude.ai, la cartella richiede un account autorizzato quindi niente `curl` anonimo.
+2. Scarica ogni Sheet come `.csv` in `output/workdir/sheets_raw/...`: di **default** con `--mode fetch-sheets` (canale OAuth a refresh token — `google_auth.json`, recuperato via connettore Drive solo la prima volta per macchina e poi riusato dalle sessioni successive). Il connettore Drive/`download_file_content` è solo il **fallback** se il fast path non è disponibile (credenziali non recuperabili, refresh token scaduto, errore dello script) — non è più il canale primario per il contenuto degli Sheet, resta necessario solo per `search_files` (trovare gli ID) e per recuperare `google_auth.json`.
 3. Materializza:
    ```bash
    python scripts/cluster.py --mode sync-rules --workdir output/workdir

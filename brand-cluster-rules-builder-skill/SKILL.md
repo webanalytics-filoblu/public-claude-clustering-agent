@@ -44,7 +44,13 @@ Elenca all'utente i vertical trovati (escludendo `_Attributi`) e chiedi quale vu
 
 Trova l'ID del Google Sheet `cluster_<vertical>_<lingua>` con `search_files` (solo il campo `id`, non il contenuto) dentro la cartella del vertical. **Precondizione: lo Sheet deve essere monotab** (un solo tab, formato compresso) — l'export CSV copre sempre e solo il primo/unico tab. Se sospetti che lo Sheet abbia più tab legacy, fermati e segnalalo all'utente invece di leggerne solo uno perdendo silenziosamente gli altri.
 
-Scarica il tab come CSV, **senza farlo passare per il tuo contesto quando possibile**: usa il tool connettore `download_file_content(fileId=<ID_SHEET>, exportMimeType="text/csv")`, decodifica il base64 e scrivilo su disco. La cartella richiede un account Google autorizzato (non è condivisa "chiunque abbia il link"): niente `curl` verso `docs.google.com`/`*.googleusercontent.com`, in nessun ambiente — riceveresti solo una pagina di login al posto del CSV.
+Scarica il tab come CSV. Il canale di **default** è il fast path OAuth a refresh token, non il connettore: recupera una volta per sessione `google_auth.json` dalla cartella privata Drive indicata da `google_auth_folder_id` in `clustering-config.json` (via `search_files`/`read_file_content` — file piccolo e piatto, non un export CSV; se non recuperabile, il fast path non è disponibile) e poi
+
+```bash
+python scripts/cluster.py --mode fetch-sheets --workdir work --auth-file work/google_auth.json --manifest <path manifest.json>
+```
+
+dove il manifest è `{"rules_baseline.csv": "<ID_SHEET>"}`. Solo se il fast path non è disponibile (credenziali non recuperabili, refresh token scaduto, errore dello script) ricorri al connettore come **fallback**: `download_file_content(fileId=<ID_SHEET>, exportMimeType="text/csv")`, decodifica il base64 e scrivilo su disco. La cartella richiede un account Google autorizzato (non è condivisa "chiunque abbia il link"): niente `curl` verso `docs.google.com`/`*.googleusercontent.com`, in nessun ambiente — riceveresti solo una pagina di login al posto del CSV.
 
 **Se il risultato supera il limite di token/caratteri gestibile in un solo passaggio**
 (basta uno Sheet di poche centinaia di righe): verifica come si comporta l'ambiente in
