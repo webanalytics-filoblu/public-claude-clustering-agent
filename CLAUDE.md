@@ -66,7 +66,14 @@ Prima di ogni `--mode prepare` (una sola volta per vertical/sessione), materiali
    - attributi condivisi: dentro `_Attributi`, titolo `attributi_<lingua>` (es. `attributi_it`)
    - brand correlati: sotto "Clustering rules" (id `<CLUSTERING_RULES_FOLDER_ID>`), titolo `brands`
    - città note: sotto "Clustering rules", titolo `cities`
-2. **Scarica ogni Sheet come `.csv`** (un solo tab per Sheet, quindi un solo file — nessuna lettura/riscrittura tab per tab). **Di default** usa il fast path `--mode fetch-sheets` (sezione dedicata sotto), che scarica tutti i file in un colpo con il manifest costruito al punto 1 sopra, in parallelo, senza far transitare alcun base64 dal tuo contesto. Se il fast path non è disponibile (credenziali non recuperabili, refresh token scaduto, errore dello script), usa il fallback per-file con lo stesso tool connettore in ogni ambiente:
+2. **Scarica ogni Sheet come `.csv`** (un solo tab per Sheet, quindi un solo file — nessuna lettura/riscrittura tab per tab). **Il fast path va tentato per primo, sempre, in ogni sessione, di tua iniziativa — non è una scelta tra due opzioni equivalenti**:
+   - Controlla se `~/.config/seo-clustering-agent/google_auth.json` esiste già su questa macchina/ambiente. Se sì, usalo direttamente.
+   - Se non esiste, **prima di fare qualunque altra cosa** vai a recuperarlo tu stesso da Drive (cartella `google_auth_folder_id` in `clustering-config.json` — procedura completa in "Fast path" più sotto). Non è un passaggio opzionale da saltare per andare più veloce al fallback: è il fallback per-file quello lento, non questo.
+   - Solo se il recupero fallisce davvero (cartella non accessibile, file assente/invalido, `--mode fetch-sheets` in errore) puoi passare al fallback sotto — e in quel caso dillo esplicitamente all'utente ("fast path non disponibile, uso il fallback più lento") invece di scivolarci in silenzio.
+
+   Una volta ottenute le credenziali, esegui `--mode fetch-sheets` con il manifest costruito al punto 1 sopra: scarica tutti i file in un colpo, in parallelo, senza far transitare alcun base64 dal tuo contesto (procedura completa in "Fast path" più sotto).
+
+   **Fallback per-file** (solo dopo aver verificato che il fast path non è disponibile), con lo stesso tool connettore in ogni ambiente:
 
    ```text
    download_file_content(fileId=<ID_SHEET>, exportMimeType="text/csv")
