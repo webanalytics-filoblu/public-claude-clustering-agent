@@ -127,6 +127,36 @@ Prima di ogni `--mode prepare` (una sola volta per vertical/sessione), materiali
 
 Ripeti gli step 1-2 solo per un nuovo vertical/lingua o quando lo Sheet è cambiato dall'ultima sync in questa sessione; se hai già l'ID di uno Sheet da una ricerca precedente nella stessa sessione, riusalo senza richiamare `search_files`.
 
+### Fast path opzionale: download diretto via Google API
+
+Il flusso via connettore MCP (punti 1-3 sopra) resta il **default e l'unico obbligatorio**. Se l'utente ha esplicitamente fornito credenziali OAuth proprie (non è mai un'iniziativa tua proporle), puoi velocizzare lo step 2 con `--mode fetch-sheets`: lo script scarica i `.csv` direttamente dalla Drive API (OAuth, in parallelo) invece che uno alla volta via `download_file_content`, eliminando il giro base64-attraverso-il-contesto. Lo step 1 (`search_files` per trovare gli ID Sheet) resta invariato — serve comunque a scoprire quali file scaricare.
+
+1. **Recupera `google_auth.json`** dalla cartella privata Drive che l'utente ti ha indicato (non condivisa con l'organizzazione, a differenza di "Clustering rules") con `read_file_content` (file piccolo, non uno Sheet — nessun export CSV necessario) e scrivilo su un path **fuori dalla repository git**, tipicamente `~/.config/seo-clustering-agent/google_auth.json` (default letto dallo script). Mai scriverlo dentro l'albero del repo, nemmeno in `output/` (che viene comunque svuotato da `--mode merge`).
+2. Formato del file (fornito una tantum dall'utente, generato dal suo progetto OAuth Google Cloud):
+   ```json
+   {
+     "client_id": "XXXXXXXXXXXX.apps.googleusercontent.com",
+     "client_secret": "XXXXXXXXXXXXXXXXXXXXXXXX",
+     "refresh_token": "1//XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+   }
+   ```
+   `api_key` è opzionale (solo per attribuzione quota, non necessario per l'autorizzazione: un file a condivisione ristretta non si sblocca con la sola API key, serve il token OAuth).
+3. Costruisci un manifest JSON `{<path relativo sotto sheets_raw/>: <file_id>}` con gli ID trovati al punto 1 del flusso standard, es.:
+   ```json
+   {"brands.csv": "1AbC...", "cities.csv": "1XyZ...", "_attributi/it.csv": "1Def...", "fashion/it.csv": "1Ghi..."}
+   ```
+4. Esegui:
+   ```bash
+   python scripts/cluster.py --mode fetch-sheets --workdir output/workdir --manifest <path manifest.json>
+   ```
+   Popola `output/workdir/sheets_raw/...` esattamente come il flusso via connettore; poi procedi normalmente con `--mode sync-rules` (punto 3 sopra, invariato).
+
+**Regole di sicurezza, non negoziabili:**
+- `google_auth.json` contiene un refresh token: è una credenziale persistente legata a un account Google specifico, non un ID pubblico come `clustering_rules_folder_id`. Non va **mai** scritta dentro l'albero del repo (nemmeno in path gitignorati), non va mai loggata in chiaro, non va mai committata.
+- Non proporre mai tu questo fast path di tua iniziativa, né chiedere di default all'utente delle credenziali OAuth: usalo solo se l'utente lo ha già impostato esplicitamente e ti ha indicato dove trovare `google_auth.json`.
+- L'ID della cartella Drive privata che contiene `google_auth.json` è personale dell'utente (a differenza di `clustering_rules_folder_id`, pensato per essere condiviso via fork): non scriverlo in nessun file tracciato da git di questo repo pubblico — resta solo nella conversazione/sessione corrente.
+- Se `fetch-sheets` fallisce (credenziali scadute/mancanti, permessi insufficienti), non tentare fallback silenziosi: torna al flusso via connettore MCP (punti 1-3) per i file falliti.
+
 ### Formato compresso delle tab-cluster
 
 **Ogni Sheet `cluster_<vertical>_<lingua>` deve avere un solo tab** (vedi precondizione sopra): l'export `.csv` che questo repo scarica copre sempre e solo il primo/unico tab. Quel tab supporta due formati, riconosciuti automaticamente dalla prima cella dell'header:

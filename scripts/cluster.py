@@ -11,10 +11,21 @@ import csv
 import json
 import re
 import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from difflib import SequenceMatcher
 from pathlib import Path
 
 import pandas as pd
+
+# -- Google OAuth diretto (percorso alternativo a --mode fetch-sheets) -----------
+# Vedi CLAUDE.md, sezione "Fast path: download diretto via Google API", per il
+# formato di google_auth.json e le regole di sicurezza sulla credenziale.
+GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"
+GOOGLE_DRIVE_EXPORT_URL = "https://www.googleapis.com/drive/v3/files/{file_id}/export"
+DEFAULT_GOOGLE_AUTH_FILE = str(Path.home() / ".config" / "seo-clustering-agent" / "google_auth.json")
 
 # -- Brand fuzzy match ----------------------------------------------------------
 
@@ -2343,6 +2354,111 @@ def mode_add_brands(args):
         print(paste_block)
 
 
+def _load_google_credentials(auth_file: str) -> dict:
+    path = Path(auth_file).expanduser()
+    if not path.exists():
+        print(f"Errore: credenziali Google non trovate in {path}")
+        print("   Vedi CLAUDE.md, sezione 'Fast path: download diretto via Google API'.")
+        sys.exit(1)
+    try:
+        creds = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        print(f"Errore: {path} non è un JSON valido ({e}).")
+        sys.exit(1)
+    required = ["client_id", "client_secret", "refresh_token"]
+    missing = [k for k in required if not creds.get(k)]
+    if missing:
+        print(f"Errore: {path} manca dei campi obbligatori: {', '.join(missing)}")
+        sys.exit(1)
+    return creds
+
+
+def _get_google_access_token(creds: dict) -> str:
+    payload = urllib.parse.urlencode({
+        "client_id": creds["client_id"],
+        "client_secret": creds["client_secret"],
+        "refresh_token": creds["refresh_token"],
+        "grant_type": "refresh_token",
+    }).encode("utf-8")
+    req = urllib.request.Request(GOOGLE_TOKEN_URI, data=payload, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        print(f"Errore: refresh del token Google fallito ({e.code}): {body}")
+        sys.exit(1)
+    access_token = data.get("access_token")
+    if not access_token:
+        print(f"Errore: risposta token Google senza access_token: {data}")
+        sys.exit(1)
+    return access_token
+
+
+def _export_sheet_csv(file_id: str, access_token: str, api_key: str | None = None) -> bytes:
+    url = GOOGLE_DRIVE_EXPORT_URL.format(file_id=file_id) + "?" + urllib.parse.urlencode(
+        {"mimeType": "text/csv", **({"key": api_key} if api_key else {})}
+    )
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {access_token}"})
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        return resp.read()
+
+
+def mode_fetch_sheets(args):
+    """
+    Fast path alternativo a mode_sync_rules: scarica i .csv degli Sheet
+    direttamente via Google Drive API (OAuth con refresh token), in parallelo,
+    scrivendoli sotto <workdir>/sheets_raw/ — bypassando il tool connettore
+    MCP per il contenuto (che resta comunque necessario per scoprire gli ID
+    degli Sheet via search_files). Vedi CLAUDE.md per il formato di
+    google_auth.json e le avvertenze di sicurezza sulla credenziale.
+
+    --manifest è un JSON {"<path relativo sotto sheets_raw/>": "<file_id>"},
+    es. {"brands.csv": "1AbC...", "fashion/it.csv": "1Def..."}.
+    """
+    workdir = Path(args.workdir)
+    manifest_path = Path(args.manifest) if args.manifest else None
+    if not manifest_path or not manifest_path.exists():
+        print("Errore: --manifest richiesto (JSON {relative_path: file_id}) in modalità fetch-sheets.")
+        sys.exit(1)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not manifest:
+        print("Errore: --manifest è vuoto.")
+        sys.exit(1)
+
+    creds = _load_google_credentials(args.auth_file)
+    access_token = _get_google_access_token(creds)
+    api_key = creds.get("api_key")
+
+    staging = workdir / "sheets_raw"
+    staging.mkdir(parents=True, exist_ok=True)
+
+    def _fetch_one(rel_path: str, file_id: str):
+        dest = staging / rel_path
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        content = _export_sheet_csv(file_id, access_token, api_key)
+        dest.write_bytes(content)
+        return rel_path, len(content)
+
+    ok, failed = 0, []
+    with ThreadPoolExecutor(max_workers=min(8, len(manifest))) as pool:
+        futures = {pool.submit(_fetch_one, rel, fid): rel for rel, fid in manifest.items()}
+        for future in as_completed(futures):
+            rel = futures[future]
+            try:
+                rel_path, n_bytes = future.result()
+                log(f"{rel_path} ({n_bytes} bytes)", "ok")
+                ok += 1
+            except Exception as e:
+                log(f"{rel} fallito: {e}", "warn")
+                failed.append(rel)
+
+    print(f"\n[OK] {ok}/{len(manifest)} file scaricati in {staging}.")
+    if failed:
+        print(f"[WARN] falliti: {', '.join(failed)} — esegui di nuovo fetch-sheets solo per questi, o usa il fallback via connettore MCP (vedi CLAUDE.md).")
+    print("   Prossimo passo: --mode sync-rules (come nel flusso via connettore).")
+
+
 def mode_sync_rules(args):
     """
     Materializza in <workdir>/rules/ le regole già scaricate dagli Sheet Google
@@ -2655,7 +2771,12 @@ def mode_merge(args):
 
 def main():
     parser = argparse.ArgumentParser(description="SEO Keyword Clustering Agent")
-    parser.add_argument("--mode",           choices=["sync-rules", "prepare", "analyze", "add-rules", "add-brands", "process-batches", "merge"], default="prepare")
+    parser.add_argument("--mode",           choices=["fetch-sheets", "sync-rules", "prepare", "analyze", "add-rules", "add-brands", "process-batches", "merge"], default="prepare")
+    parser.add_argument("--auth-file",      default=DEFAULT_GOOGLE_AUTH_FILE,
+                        help="Path del google_auth.json per --mode fetch-sheets (fast path via Google API diretta). "
+                             "Vedi CLAUDE.md per formato e regole di sicurezza.")
+    parser.add_argument("--manifest",       default=None,
+                        help="JSON {relative_path_sotto_sheets_raw: file_id} per --mode fetch-sheets.")
     parser.add_argument("--input",          help="CSV di input (richiesto in modalità prepare)")
     parser.add_argument("--output",         default="output/clustered.csv")
     parser.add_argument("--workdir",        default="output/workdir")
@@ -2680,7 +2801,9 @@ def main():
     global RULES_DIR
     RULES_DIR = Path(args.workdir) / "rules"
 
-    if args.mode == "sync-rules":
+    if args.mode == "fetch-sheets":
+        mode_fetch_sheets(args)
+    elif args.mode == "sync-rules":
         mode_sync_rules(args)
     elif args.mode == "prepare":
         if not args.input:
