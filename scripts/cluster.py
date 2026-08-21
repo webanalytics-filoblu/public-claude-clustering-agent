@@ -2365,7 +2365,7 @@ def _load_google_credentials(auth_file: str) -> dict:
     except json.JSONDecodeError as e:
         print(f"Errore: {path} non è un JSON valido ({e}).")
         sys.exit(1)
-    required = ["client_id", "client_secret", "refresh_token"]
+    required = ["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET", "GOOGLE_OAUTH_REFRESH_TOKEN"]
     missing = [k for k in required if not creds.get(k)]
     if missing:
         print(f"Errore: {path} manca dei campi obbligatori: {', '.join(missing)}")
@@ -2375,9 +2375,9 @@ def _load_google_credentials(auth_file: str) -> dict:
 
 def _get_google_access_token(creds: dict) -> str:
     payload = urllib.parse.urlencode({
-        "client_id": creds["client_id"],
-        "client_secret": creds["client_secret"],
-        "refresh_token": creds["refresh_token"],
+        "client_id": creds["GOOGLE_OAUTH_CLIENT_ID"],
+        "client_secret": creds["GOOGLE_OAUTH_CLIENT_SECRET"],
+        "refresh_token": creds["GOOGLE_OAUTH_REFRESH_TOKEN"],
         "grant_type": "refresh_token",
     }).encode("utf-8")
     req = urllib.request.Request(GOOGLE_TOKEN_URI, data=payload, method="POST")
@@ -2428,7 +2428,7 @@ def mode_fetch_sheets(args):
 
     creds = _load_google_credentials(args.auth_file)
     access_token = _get_google_access_token(creds)
-    api_key = creds.get("api_key")
+    api_key = creds.get("GOOGLE_API_KEY")
 
     staging = workdir / "sheets_raw"
     staging.mkdir(parents=True, exist_ok=True)

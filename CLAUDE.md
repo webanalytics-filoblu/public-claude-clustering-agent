@@ -135,12 +135,13 @@ Il flusso via connettore MCP (punti 1-3 sopra) resta il **default e l'unico obbl
 2. Formato del file (fornito una tantum dall'utente, generato dal suo progetto OAuth Google Cloud):
    ```json
    {
-     "client_id": "XXXXXXXXXXXX.apps.googleusercontent.com",
-     "client_secret": "XXXXXXXXXXXXXXXXXXXXXXXX",
-     "refresh_token": "1//XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+     "GOOGLE_OAUTH_CLIENT_ID": "XXXXXXXXXXXX.apps.googleusercontent.com",
+     "GOOGLE_OAUTH_CLIENT_SECRET": "XXXXXXXXXXXXXXXXXXXXXXXX",
+     "GOOGLE_OAUTH_REFRESH_TOKEN": "1//XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+     "GOOGLE_API_KEY": "XXXXXXXXXXXXXXXXXXXXXXXX"
    }
    ```
-   `api_key` è opzionale (solo per attribuzione quota, non necessario per l'autorizzazione: un file a condivisione ristretta non si sblocca con la sola API key, serve il token OAuth).
+   `GOOGLE_API_KEY` è opzionale (solo per attribuzione quota, non necessario per l'autorizzazione: un file a condivisione ristretta non si sblocca con la sola API key, serve il token OAuth). Gli altri tre campi sono obbligatori.
 3. Costruisci un manifest JSON `{<path relativo sotto sheets_raw/>: <file_id>}` con gli ID trovati al punto 1 del flusso standard, es.:
    ```json
    {"brands.csv": "1AbC...", "cities.csv": "1XyZ...", "_attributi/it.csv": "1Def...", "fashion/it.csv": "1Ghi..."}
