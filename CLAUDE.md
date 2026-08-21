@@ -66,7 +66,7 @@ Prima di ogni `--mode prepare` (una sola volta per vertical/sessione), materiali
    - attributi condivisi: dentro `_Attributi`, titolo `attributi_<lingua>` (es. `attributi_it`)
    - brand correlati: sotto "Clustering rules" (id `<CLUSTERING_RULES_FOLDER_ID>`), titolo `brands`
    - città note: sotto "Clustering rules", titolo `cities`
-2. **Scarica ogni Sheet come `.csv`** (un solo tab per Sheet, quindi un solo file — nessuna lettura/riscrittura tab per tab), con lo stesso tool in ogni ambiente:
+2. **Scarica ogni Sheet come `.csv`** (un solo tab per Sheet, quindi un solo file — nessuna lettura/riscrittura tab per tab). **Di default** usa il fast path `--mode fetch-sheets` (sezione dedicata sotto), che scarica tutti i file in un colpo con il manifest costruito al punto 1 sopra, in parallelo, senza far transitare alcun base64 dal tuo contesto. Se il fast path non è disponibile (credenziali non recuperabili, refresh token scaduto, errore dello script), usa il fallback per-file con lo stesso tool connettore in ogni ambiente:
 
    ```text
    download_file_content(fileId=<ID_SHEET>, exportMimeType="text/csv")
@@ -127,11 +127,33 @@ Prima di ogni `--mode prepare` (una sola volta per vertical/sessione), materiali
 
 Ripeti gli step 1-2 solo per un nuovo vertical/lingua o quando lo Sheet è cambiato dall'ultima sync in questa sessione; se hai già l'ID di uno Sheet da una ricerca precedente nella stessa sessione, riusalo senza richiamare `search_files`.
 
-### Fast path opzionale: download diretto via Google API
+### Fast path (default per lo scaricamento): download diretto via Google API, con fallback su MCP
 
-Il flusso via connettore MCP (punti 1-3 sopra) resta il **default e l'unico obbligatorio**. Se l'utente ha esplicitamente fornito credenziali OAuth proprie (non è mai un'iniziativa tua proporle), puoi velocizzare lo step 2 con `--mode fetch-sheets`: lo script scarica i `.csv` direttamente dalla Drive API (OAuth, in parallelo) invece che uno alla volta via `download_file_content`, eliminando il giro base64-attraverso-il-contesto. Lo step 1 (`search_files` per trovare gli ID Sheet) resta invariato — serve comunque a scoprire quali file scaricare.
+Per lo step 2 (scaricamento degli Sheet come `.csv`), usa **di default** `--mode
+fetch-sheets`: lo script scarica i `.csv` direttamente dalla Drive API (OAuth, in
+parallelo) invece che uno alla volta via `download_file_content`, eliminando il giro
+base64-attraverso-il-contesto. Lo step 1 (`search_files` per trovare gli ID Sheet) resta
+invariato e via connettore MCP — serve comunque a scoprire quali file scaricare, il fast
+path scarica solo i contenuti una volta noti gli ID. Se per questo passaggio il fast path
+non è disponibile (vedi punto 1 sotto), usa semplicemente il flusso via connettore MCP
+(punto 2 sopra) — non è un errore, è il comportamento di fallback previsto.
 
-1. **Recupera `google_auth.json`** dalla cartella privata Drive indicata da `google_auth_folder_id` in `clustering-config.json` (nome file: `google_auth_filename`, default `google_auth.json`) con `search_files`/`read_file_content` (file piccolo, non uno Sheet — nessun export CSV necessario) e scrivilo su un path **fuori dalla repository git**, tipicamente `~/.config/seo-clustering-agent/google_auth.json` (default letto dallo script). Mai scriverlo dentro l'albero del repo, nemmeno in `output/` (che viene comunque svuotato da `--mode merge`).
+1. **Recupera `google_auth.json`** (una volta per macchina/ambiente, non per ogni sessione):
+   - Se esiste già in locale (default `~/.config/seo-clustering-agent/google_auth.json`,
+     path letto dallo script, persistente fra run/sessioni sullo stesso ambiente), usalo
+     direttamente: nessun altro passaggio necessario.
+   - Altrimenti, prova a recuperarlo **tu stesso**, di tua iniziativa (non serve che
+     l'utente te lo richieda ogni volta), dalla cartella privata Drive indicata da
+     `google_auth_folder_id` in `clustering-config.json` (nome file:
+     `google_auth_filename`, default `google_auth.json`) con `search_files`/
+     `read_file_content` (file piccolo, non uno Sheet — nessun export CSV necessario) e
+     scrivilo su quel path, **fuori dalla repository git**. Mai scriverlo dentro l'albero
+     del repo, nemmeno in `output/` (che viene comunque svuotato da `--mode merge`).
+   - Se il recupero fallisce (cartella non accessibile, file assente, JSON invalido, campi
+     obbligatori mancanti): il fast path non è disponibile in questa sessione. Non
+     bloccarti e non chiedere all'utente di dettarti client id/secret/refresh token in
+     chat — usa il flusso via connettore MCP (punto 2 sopra) come se questa sezione non
+     esistesse.
 2. Formato del file (fornito una tantum dall'utente, generato dal suo progetto OAuth Google Cloud):
    ```json
    {
@@ -155,8 +177,15 @@ Il flusso via connettore MCP (punti 1-3 sopra) resta il **default e l'unico obbl
 **Regole di sicurezza, non negoziabili:**
 - **Il *contenuto* di `google_auth.json` non va mai committato**: contiene un refresh token, una credenziale persistente legata a un account Google specifico. Non va **mai** scritto dentro l'albero del repo (nemmeno in path gitignorati), non va mai loggato in chiaro.
 - `google_auth_folder_id`/`google_auth_filename` in `clustering-config.json` sono solo un **puntatore** (dove cercare il file su Drive), non il segreto stesso — l'utente ha scelto esplicitamente di tenerli in chiaro nel repo pubblico, accettando il rischio residuo: se in futuro quella cartella Drive perdesse la condivisione ristretta (es. diventasse "chiunque abbia il link"), l'ID in chiaro indicherebbe esattamente dove cercare un vero refresh token, non solo regole SEO come per `clustering_rules_folder_id`. In quel caso vanno rimossi immediatamente da `clustering-config.json` e il refresh token va revocato/rigenerato.
-- Non proporre mai tu questo fast path di tua iniziativa, né chiedere di default all'utente delle credenziali OAuth: usalo solo se l'utente lo ha già impostato esplicitamente.
-- Se `fetch-sheets` fallisce (credenziali scadute/mancanti, permessi insufficienti), non tentare fallback silenziosi: torna al flusso via connettore MCP (punti 1-3) per i file falliti.
+- Questo fast path è il comportamento **di default** per lo step 2 (punto 1 sopra): puoi
+  recuperare e usare `google_auth.json` di tua iniziativa, senza che l'utente te lo
+  richieda ogni volta. Non chiedere però mai all'utente di **dettarti in chat** client
+  id/secret/refresh token: se il file non è recuperabile da `google_auth_folder_id`, usa
+  il fallback via connettore MCP invece di richiederli manualmente.
+- Se `fetch-sheets` fallisce (credenziali scadute/mancanti, permessi insufficienti), torna
+  al flusso via connettore MCP (punti 1-3) per i file falliti — questo è l'unico fallback
+  previsto, non inventarne altri (non chiedere credenziali in chat, non riprovare
+  all'infinito).
 
 ### Formato compresso delle tab-cluster
 
