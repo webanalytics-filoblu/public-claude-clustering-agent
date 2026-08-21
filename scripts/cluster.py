@@ -20,9 +20,11 @@ from pathlib import Path
 
 import pandas as pd
 
-# -- Google OAuth diretto (percorso alternativo a --mode fetch-sheets) -----------
-# Vedi CLAUDE.md, sezione "Fast path: download diretto via Google API", per il
-# formato di google_auth.json e le regole di sicurezza sulla credenziale.
+# -- Google OAuth diretto (--mode fetch-sheets: canale di default per lo step 2 -
+# dello Sheet sync, con fallback sul connettore MCP) -----------------------------
+# Vedi CLAUDE.md, sezione "Fast path (default per lo scaricamento): download
+# diretto via Google API, con fallback su MCP", per il formato di
+# google_auth.json e le regole di sicurezza sulla credenziale.
 GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"
 GOOGLE_DRIVE_EXPORT_URL = "https://www.googleapis.com/drive/v3/files/{file_id}/export"
 DEFAULT_GOOGLE_AUTH_FILE = str(Path.home() / ".config" / "seo-clustering-agent" / "google_auth.json")
